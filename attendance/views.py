@@ -55,16 +55,14 @@ def dashboard(request):
                         'Please view this email in a HTML-compatible email client.',
                         settings.EMAIL_HOST_USER,
                         [child.parent.email, 'christopheranchetaece@gmail.com'],
-                        fail_silently=False,
+                        fail_silently=True,
                         html_message=html_message
                     )
                     print(f"Email sent successfully to {child.parent.email}")
                 except Exception as e:
-                    # Log the error with more details
                     print(f"Email sending failed: {str(e)}")
                     print(f"Failed to send email to: {child.parent.email}")
-                    print(f"Email configuration: {EMAIL_HOST_USER}")
-                    messages.error(request, f"Failed to send notification email: {str(e)}")
+                    messages.error(request, "Failed to send notification email. Please check the email configuration.")
 
                 return render(request, 'attendance/dashboard.html')
             
@@ -200,8 +198,45 @@ def child_profile(request):
         return JsonResponse({'error': 'Child not found'}, status=404)
 
 def attendance_records(request):
-    # Get all attendance records
-    attendances = Attendance.objects.all().order_by('child_id', 'timestamp')
+    # Get all children
+    children = Child.objects.all().order_by('name')
+    
+    # Get today's date
+    today = timezone.now().date()
+    
+    # Get all attendance records for today
+    todays_attendances = Attendance.objects.filter(timestamp__date=today).order_by('child_id', 'timestamp')
+    
+    # Create a dictionary to store attendance status for each child
+    attendance_status = {}
+    
+    # Process attendance records
+    for attendance in todays_attendances:
+        if attendance.child_id not in attendance_status:
+            attendance_status[attendance.child_id] = []
+        attendance_status[attendance.child_id].append(attendance.action_type)
+    
+    # Prepare data for template
+    children_data = []
+    for child in children:
+        child_status = {
+            'id': child.id,
+            'name': child.name,
+            'parent': child.parent.name if child.parent else 'No parent assigned',
+            'last_action': None,
+            'status': None,
+            'center': child.center.name if child.center else 'No center assigned'
+        }
+        
+        # Get today's attendance records for this child
+        if child.id in attendance_status:
+            records = attendance_status[child.id]
+            child_status['last_action'] = records[-1]
+            child_status['status'] = 'Signed Out' if len(records) % 2 == 0 else 'Signed In'
+        else:
+            child_status['status'] = 'Not Signed In'
+        
+        children_data.append(child_status)
     
     # Process records to group by child and date
     attendance_data = []
@@ -209,7 +244,7 @@ def attendance_records(request):
     current_date = None
     current_records = []
     
-    for attendance in attendances:
+    for attendance in todays_attendances:
         if (attendance.child_id != current_child) or (attendance.timestamp.date() != current_date):
             # Process previous group if we have one
             if current_records:
@@ -224,15 +259,14 @@ def attendance_records(request):
                     'status': status,
                     'sign_in_time': first_attendance.timestamp,
                     'sign_out_time': last_attendance.timestamp if len(current_records) == 2 else None,
-                    'created_at': first_attendance.created_at
                 })
-            
+                
             # Start new group
             current_child = attendance.child_id
             current_date = attendance.timestamp.date()
-            current_records = [attendance]
-        else:
-            current_records.append(attendance)
+            current_records = []
+            
+        current_records.append(attendance)
     
     # Process last group if any
     if current_records:
@@ -247,11 +281,10 @@ def attendance_records(request):
             'status': status,
             'sign_in_time': first_attendance.timestamp,
             'sign_out_time': last_attendance.timestamp if len(current_records) == 2 else None,
-            'created_at': first_attendance.created_at
         })
     
     return render(request, 'attendance/records.html', {
-        'attendance_data': attendance_data
+        'children_data': children_data
     })
 
 @login_required

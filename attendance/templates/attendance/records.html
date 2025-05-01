@@ -1,59 +1,44 @@
-{% extends 'attendance/base.html' %}
+{% extends 'base.html' %}
+
+{% block title %}Attendance Records{% endblock %}
 
 {% block content %}
-<div class="row">
-    <div class="col-12">
-        <div class="card">
-            <div class="card-header">
-                <h3 class="card-title">Attendance Records</h3>
-            </div>
-            <div class="card-body">
-                <div class="row mb-3">
-                    <div class="col-md-4">
-                        <input type="text" id="childFilter" class="form-control" placeholder="Filter by child name...">
-                    </div>
-                    <div class="col-md-4">
-                        <input type="date" id="dateFilter" class="form-control">
-                    </div>
-                </div>
-                <div class="table-responsive">
-                    <table class="table table-striped">
-                        <thead>
-                            <tr>
-                                <th>Child Name</th>
-                                <th>Parent Name</th>
-                                <th>Date</th>
-                                <th>Status</th>
-                                <th>Sign In Time</th>
-                                <th>Sign Out Time</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for record in attendance_data %}
-                            <tr>
-                                <td>{{ record.child.name }}</td>
-                                <td>{{ record.parent.name }}</td>
-                                <td>{{ record.date|date:"Y-m-d" }}</td>
-                                <td>
-                                    <span class="badge {% if record.status == 'Signed Out' %}bg-success{% else %}bg-primary{% endif %}">
-                                        {{ record.status }}
-                                    </span>
-                                </td>
-                                <td>{{ record.sign_in_time|time:"H:i:s" }}</td>
-                                <td>
-                                    {% if record.sign_out_time %}
-                                        {{ record.sign_out_time|time:"H:i:s" }}
-                                        {{ attendance.sign_out_time|time:"H:i:s" }}
-                                    {% else %}
-                                        -
-                                    {% endif %}
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">Attendance Records</h3>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Child Name</th>
+                        <th>Parent Name</th>	
+                        <th>Center</th>
+                        <th>Status</th>
+                        <th>Last Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for child in children_data %}
+                    <tr>
+                        <td>{{ child.name }}</td>
+                        <td>{{ child.parent }}</td>
+                        <td>{{ child.center }}</td>
+                        <td>
+                            {% if child.status == 'Signed In' %}
+                                <span class="badge bg-success">{{ child.status }}</span>
+                            {% elif child.status == 'Signed Out' %}
+                                <span class="badge bg-warning">{{ child.status }}</span>
+                            {% else %}
+                                <span class="badge bg-danger">{{ child.status }}</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ child.last_action|default:"-" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
     </div>
 </div>
