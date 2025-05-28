@@ -928,6 +928,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
     searchInput.addEventListener('input', function() {
         const searchTerm = this.value.trim();
+        // Clear the parent input box when search starts
+        const parentNameInput = document.getElementById('parentName');
+        if (parentNameInput) {
+            parentNameInput.value = '';
+        }
+        
         if (searchTerm.length >= 2) {
             searchResults.innerHTML = '';
             searchResults.appendChild(loadingIndicator);
