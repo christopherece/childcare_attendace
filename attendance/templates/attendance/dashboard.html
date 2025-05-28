@@ -1,49 +1,709 @@
 {% extends 'attendance/base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<style>
+    /* Global styles */
+    body {
+        background-color: #f0f8ff;
+    }
+
+    /* Playful patterns */
+    body::before {
+        content: '';
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200"><circle cx="50" cy="50" r="20" fill="%23ff6b6b" opacity="0.1"/><circle cx="150" cy="150" r="20" fill="%234ecdc4" opacity="0.1"/><circle cx="100" cy="100" r="20" fill="%23ff6b6b" opacity="0.1"/></svg>') no-repeat;
+        z-index: -1;
+    }
+
+    /* Tablet-friendly card styles */
+    .card-lg {
+        background: linear-gradient(135deg, #fff 0%, #f8f9fa 100%);
+        border-radius: 20px;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+        transition: all 0.3s ease;
+        border: 2px solid #e3f2fd;
+        width: 100%;
+        margin-bottom: 2rem;
+    }
+
+    .card-lg:hover {
+        box-shadow: 0 12px 30px rgba(0,0,0,0.1);
+        transform: translateY(-3px);
+    }
+
+    .card-lg .card-header {
+        background: linear-gradient(135deg, #e3f2fd 0%, #fff 100%);
+        border-bottom: 2px solid #b3e5fc;
+        padding: 1.2rem 1.5rem;
+    }
+
+    /* Clock styles */
+    .clock-container {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 0.5rem;
+    }
+    .clock-time {
+        font-size: 1.5rem;
+        font-weight: 500;
+        color: #004d40;
+        display: block;
+    }
+    .clock-date {
+        font-size: 0.9rem;
+        color: #666;
+        display: block;
+    }
+
+    /* Clock styles */
+    .clock-container {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 0.5rem;
+    }
+    .clock-time {
+        font-size: 1.5rem;
+        font-weight: 500;
+        color: #004d40;
+    }
+    .clock-date {
+        font-size: 0.9rem;
+        color: #666;
+    }
+
+    /* Alert styles */
+    .alert {
+        border-radius: 12px;
+        padding: 22px 30px;
+        margin-bottom: 25px;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+        transition: all 0.3s ease;
+        font-size: 1.1rem;
+        border: none;
+    }
+
+    .alert-success {
+        background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+        color: #155724;
+    }
+
+    .alert-danger {
+        background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
+        color: #721c24;
+    }
+
+    .alert .alert-icon {
+        font-size: 1.8em;
+        margin-right: 15px;
+    }
+
+    .clock-container {
+        text-align: right;
+    }
+
+    .clock {
+        font-family: 'Arial', sans-serif;
+        font-weight: 500;
+    }
+
+    #clock-time {
+        font-size: 1.8em;
+        color: #333;
+    }
+
+    #clock-date {
+        font-size: 1.2em;
+        color: #666;
+    }
+
+    .card-lg {
+        padding: 2rem;
+        margin-bottom: 2rem;
+    }
+
+    .card-lg .card-header {
+        padding: 1.5rem;
+    }
+
+    .card-lg .card-body {
+        padding: 2rem;
+    }
+
+    .card-lg .list-group {
+        padding: 1rem;
+    }
+
+    .card-lg .form-control {
+        height: calc(2.5rem + 2px);
+        font-size: 1.2rem;
+        padding: 0.75rem;
+    }
+
+    /* Button styles */
+    /* Button styles */
+    /* Button styles */
+    .card-lg .btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 1.2rem 2.5rem;
+        font-size: 1.5rem;
+        font-weight: 600;
+        border-radius: 25px;
+        transition: all 0.3s ease;
+        border: none;
+        text-transform: uppercase;
+        letter-spacing: 1.5px;
+        min-width: 200px;
+        line-height: 1.2;
+    }
+
+    .card-lg .btn-primary {
+        background: linear-gradient(135deg, #4ecdc4 0%, #45b7d1 100%);
+        box-shadow: 0 5px 15px rgba(78,205,196,0.3);
+        color: white;
+    }
+
+    .card-lg .btn-primary:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 25px rgba(78,205,196,0.4);
+        background: linear-gradient(135deg, #45b7d1 0%, #4ecdc4 100%);
+    }
+
+    .card-lg .btn-primary:active {
+        transform: translateY(1px);
+        box-shadow: 0 2px 10px rgba(78,205,196,0.3);
+    }
+
+    .card-lg .btn-outline-danger {
+        background: linear-gradient(135deg, #ff6b6b 0%, #ff5252 100%);
+        border: none;
+        color: white;
+    }
+
+    .card-lg .btn-outline-danger:hover {
+        background: linear-gradient(135deg, #ff5252 0%, #ff6b6b 100%);
+        box-shadow: 0 5px 15px rgba(255,107,107,0.3);
+        transform: translateY(-3px);
+    }
+
+    .card-lg .btn-outline-danger:active {
+        transform: translateY(1px);
+        box-shadow: 0 2px 10px rgba(255,107,107,0.2);
+    }
+
+    .btn-group {
+        gap: 1rem;
+        width: 100%;
+        justify-content: center;
+    }
+
+    .card-lg .btn-primary {
+        background: linear-gradient(135deg, #4ecdc4 0%, #45b7d1 100%);
+        box-shadow: 0 4px 15px rgba(78,205,196,0.3);
+    }
+
+    .card-lg .btn-primary:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 6px 20px rgba(78,205,196,0.4);
+    }
+
+    .card-lg .btn-outline-primary {
+        border: 2px solid #4ecdc4;
+        color: #4ecdc4;
+        background: white;
+    }
+
+    .card-lg .btn-outline-primary:hover {
+        background: #4ecdc4;
+        color: white;
+        border-color: #4ecdc4;
+    }
+
+    .card-lg .btn-outline-danger {
+        border: 2px solid #ff6b6b;
+        color: #ff6b6b;
+        background: white;
+    }
+
+    .card-lg .btn-outline-danger:hover {
+        background: #ff6b6b;
+        color: white;
+        border-color: #ff6b6b;
+    }
+
+    .card-lg .btn-primary {
+        background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+        box-shadow: 0 4px 12px rgba(0,123,255,0.2);
+    }
+
+    .card-lg .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 15px rgba(0,123,255,0.3);
+    }
+
+    .card-lg .btn-outline-primary {
+        border: 2px solid #007bff;
+        color: #007bff;
+    }
+
+    .card-lg .btn-outline-primary:hover {
+        background: #007bff;
+        color: white;
+    }
+
+    .card-lg .btn-outline-danger {
+        border: 2px solid #dc3545;
+        color: #dc3545;
+    }
+
+    .card-lg .btn-outline-danger:hover {
+        background: #dc3545;
+        color: white;
+    }
+
+    .card-lg .btn-group {
+        gap: 0.75rem;
+    }
+
+    /* Form labels */
+    .card-lg .form-label {
+        font-size: 1.1rem;
+        font-weight: 500;
+        margin-bottom: 0.75rem;
+    }
+
+    /* Search input */
+    .card-lg #searchInput {
+        font-size: 1.2rem;
+        padding: 1rem 1.5rem;
+        border-radius: 20px;
+        border: 2px solid #b3e5fc;
+        background: #e3f2fd;
+    }
+
+    .card-lg #searchInput:focus {
+        border-color: #4ecdc4;
+        box-shadow: 0 0 0 3px rgba(78,205,196,0.2);
+        background: white;
+    }
+
+    /* Search results */
+    /* Search results */
+    .card-lg .list-group-item {
+        font-size: 1.1rem;
+        padding: 0.75rem;
+        border-radius: 6px;
+        transition: all 0.2s ease;
+        margin-bottom: 0.3rem;
+        background: white;
+        border: 1px solid #e3f2fd;
+    }
+
+    .card-lg .list-group-item:hover {
+        background: #f8f9fa;
+        transform: translateX(5px);
+    }
+
+    .card-lg .list-group-item h6 {
+        font-size: 1.2rem;
+        font-weight: 500;
+        margin-bottom: 0.3rem;
+        color: #212529;
+    }
+
+    .card-lg .list-group-item small {
+        font-size: 0.95rem;
+        color: #6c757d;
+        display: block;
+    }
+
+    /* Card title */
+    .card-lg .card-title {
+        font-size: 1.8rem;
+        font-weight: 600;
+        color: #1976d2;
+        text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .card-lg .card-subtitle {
+        font-size: 1.2rem;
+        font-weight: 400;
+        color: #64b5f6;
+    }
+
+    .info-board {
+        margin: -1rem -2rem 2rem;
+        padding: 1rem 2rem;
+        background: linear-gradient(135deg, #e3f2fd 0%, #fff 100%);
+        border-radius: 20px;
+    }
+
+    .info-card {
+        background: white;
+        border-radius: 15px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        transition: all 0.3s ease;
+    }
+
+    .info-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+    }
+
+    .info-card h5 {
+        color: #1976d2;
+        font-weight: 600;
+        margin-bottom: 1rem;
+    }
+
+    .info-card ul {
+        margin: 0;
+        padding: 0;
+    }
+
+    .info-card li {
+        font-size: 1.1rem;
+        color: #4a4a4a;
+        padding: 0.5rem 0;
+        border-bottom: 1px solid #e9ecef;
+    }
+
+    .info-card li:last-child {
+        border-bottom: none;
+    }
+
+    .search-section {
+        background: #fff;
+        padding: 3rem;
+        border-radius: 20px;
+        margin: 2rem -2rem;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+        border: 2px solid #e3f2fd;
+    }
+
+    .search-input-container {
+        position: relative;
+    }
+
+    .search-input {
+        font-size: 1.4rem;
+        padding: 1.2rem 1.5rem;
+        border-radius: 10px;
+        border: 2px solid #b3e5fc;
+        background: #e3f2fd;
+        width: 100%;
+    }
+
+    .search-input:focus {
+        border-color: #4ecdc4;
+        box-shadow: 0 0 0 3px rgba(78,205,196,0.2);
+        background: white;
+    }
+
+    .list-group {
+        border-radius: 10px;
+        overflow: hidden;
+    }
+
+    .list-group-item {
+        border: 1px solid #e9ecef;
+        transition: all 0.3s ease;
+    }
+
+    /* Today's Schedule card specific styles */
+    .today-schedule-card .card-body {
+        padding: 0;
+    }
+
+    .today-schedule-card .list-group-item {
+        padding: 0.5rem 0.75rem;
+        margin-bottom: 0.25rem;
+    }
+
+    .today-schedule-card .list-group-item:last-child {
+        margin-bottom: 0;
+    }
+
+    .today-schedule-card .badge {
+        font-size: 0.85rem;
+        padding: 0.35em 0.65em;
+    }
+
+    .list-group-item:hover {
+        background: #f8f9fa;
+        transform: translateX(5px);
+    }
+
+    .btn-group {
+        gap: 0.5rem;
+    }
+
+    .btn {
+        height: 45px;
+        font-size: 1.2rem;
+        font-weight: 500;
+    }
+
+    /* Alerts */
+    .alert {
+        font-size: 1.1rem;
+    }
+
+    .alert .alert-icon {
+        font-size: 1.8em;
+    }
+
+    .alert .alert-icon i {
+        font-size: 1.8em;
+        color: inherit;
+    }
+    }
+
+    .alert-success {
+        background-color: #d4edda;
+        border-color: #c3e6cb;
+        color: #155724;
+    }
+
+    .alert-danger {
+        background-color: #f8d7da;
+        border-color: #f5c6cb;
+        color: #721c24;
+    }
+
+    /* Make Today's Schedule card more compact */
+    .today-schedule-card .card-header {
+        padding: 1rem;
+    }
+    .today-schedule-card .card-title {
+        font-size: 1.1rem;
+        margin-bottom: 0.5rem;
+    }
+    .today-schedule-card .list-group-item {
+        padding: 0.5rem 1rem;
+    }
+    .today-schedule-card .list-group-item h6 {
+        font-size: 0.9rem;
+        margin-bottom: 0.25rem;
+    }
+    .today-schedule-card .text-muted {
+        font-size: 0.8rem;
+    }
+    .today-schedule-card .badge {
+        font-size: 0.75rem;
+        padding: 0.35em 0.65em;
+    }
+    .today-schedule-card .text-warning {
+        font-size: 0.9rem;
+    }
+    .today-schedule-card .list-group-item small {
+        font-size: 0.75rem;
+    }
+
+    .alert .close {
+        opacity: 0.7;
+        font-size: 1.5em;
+        padding: 0 10px;
+    }
+
+    /* Reminders Styles */
+    .reminders-list {
+        padding-left: 1rem;
+    }
+
+    .reminder-item {
+        display: flex;
+        align-items: flex-start;
+        margin-bottom: 1.5rem;
+        padding-left: 2.5rem;
+        position: relative;
+    }
+
+    .reminder-item::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 2px;
+        height: 100%;
+        background-color: #e9ecef;
+    }
+
+    .reminder-icon {
+        width: 2.5rem;
+        height: 2.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        margin-right: 1rem;
+    }
+
+    .reminder-icon i {
+        font-size: 1.2rem;
+    }
+
+    .reminder-content {
+        flex: 1;
+    }
+
+    .reminder-title {
+        font-weight: 500;
+        margin-bottom: 0.25rem;
+    }
+
+    .reminder-date {
+        font-size: 0.9rem;
+    }
+
+    .alert .close:hover {
+        opacity: 1;
+    }
+
+    .alert .alert-icon {
+        font-size: 1.5em;
+        margin-right: 10px;
+    }
+</style>
+{% endblock %}
 
 {% block content %}
 <div class="row">
-    <div class="col-md-6 offset-md-3">
-        <div class="card">
+    <div class="col-md-4">
+        <div class="card card-lg today-schedule-card">
             <div class="card-header">
-                <h3 class="card-title">Child Selection</h3>
+                <h5 class="card-title mb-0">Today's Schedule</h5>
             </div>
             <div class="card-body">
-                <form method="POST" id="attendanceForm">
-                    {% csrf_token %}
-                    <div class="mb-3">
-                        <label for="searchInput" class="form-label">Search Child</label>
-                        <div class="input-group">
-                            <input type="text" class="form-control" id="searchInput" placeholder="Type child or parent name...">
-                            <button class="btn btn-outline-secondary" type="button" id="searchButton">
-                                <i class="fas fa-search"></i>
-                            </button>
-                        </div>
+                <div class="schedule-section mb-4">
+                    <div class="list-group list-group-flush">
+                        <a href="#" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="mb-1">Morning Circle Time</h6>
+                                <small class="text-muted">9:00 AM - 9:30 AM</small>
+                            </div>
+                            <span class="badge bg-primary">Active</span>
+                        </a>
+                        <a href="#" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="mb-1">Outdoor Play</h6>
+                                <small class="text-muted">10:00 AM - 11:00 AM</small>
+                            </div>
+                            <span class="badge bg-secondary">Up Next</span>
+                        </a>
+                        <a href="#" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="mb-1">Lunch Time</h6>
+                                <small class="text-muted">11:30 AM - 12:30 PM</small>
+                            </div>
+                            <span class="badge bg-success">Planned</span>
+                        </a>
+                        <a href="#" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="mb-1">Afternoon Nap</h6>
+                                <small class="text-muted">1:00 PM - 2:30 PM</small>
+                            </div>
+                            <span class="badge bg-success">Planned</span>
+                        </a>
+                        <a href="#" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="mb-1">Story Time</h6>
+                                <small class="text-muted">2:30 PM - 3:00 PM</small>
+                            </div>
+                            <span class="badge bg-success">Planned</span>
+                        </a>
                     </div>
-                    <div id="searchResults" class="list-group mb-3"></div>
-                    <input type="hidden" name="child_id" id="selectedChildId">
-                    
-                    <div id="childInfo" class="d-none">
-                        <div class="mb-3">
-                            <label class="form-label">Parent</label>
-                            <input type="text" class="form-control" id="selectedParentName" readonly>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Action</label>
-                            <div class="btn-group w-100" role="group">
-                                <input type="radio" class="btn-check" name="action" id="signIn" value="sign_in" checked>
-                                <label class="btn btn-outline-primary" for="signIn">Sign In</label>
-                                <input type="radio" class="btn-check" name="action" id="signOut" value="sign_out">
-                                <label class="btn btn-outline-danger" for="signOut">Sign Out</label>
+                </div>
+
+                <div class="reminders-section">
+                    <h6 class="text-warning mb-3">Important Reminders</h6>
+                    <div class="list-group list-group-flush">
+                        <div class="list-group-item d-flex align-items-center">
+                            <i class="fas fa-calendar-check text-primary me-2"></i>
+                            <div>
+                                <h6 class="mb-1">Parent-Teacher Conference</h6>
+                                <small class="text-muted">Next Friday, 2-4 PM</small>
                             </div>
                         </div>
-                        <button type="submit" class="btn btn-primary w-100">Submit</button>
+                        <div class="list-group-item d-flex align-items-center">
+                            <i class="fas fa-bullhorn text-warning me-2"></i>
+                            <div>
+                                <h6 class="mb-1">Emergency Drill</h6>
+                                <small class="text-muted">Tomorrow, 10 AM</small>
+                            </div>
+                        </div>
+                        <div class="list-group-item d-flex align-items-center">
+                            <i class="fas fa-clipboard-check text-success me-2"></i>
+                            <div>
+                                <h6 class="mb-1">Health Check</h6>
+                                <small class="text-muted">Monthly health check tomorrow</small>
+                            </div>
+                        </div>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-8">
+        <div class="card card-lg">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <div>
+                    <h3 class="card-title mb-0">Child Selection</h3>
+                    <p class="card-subtitle mb-0 text-muted">Welcome to Sunshine Childcare</p>
+                </div>
+                <div class="clock-container">
+                    <div class="clock">
+                        <span id="clock-time" class="clock-time">00:00:00</span>
+                        <span id="clock-date" class="clock-date">May 28, 2025</span>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                <form method="POST" id="attendanceForm" action="{% url 'attendance:dashboard' %}">
+                    {% csrf_token %}
+                    <div class="child-profile mb-4 d-none">
+                        <div class="text-center">
+                            <img id="childProfilePic" src="" alt="Child Profile" 
+                                 class="rounded-circle mb-3" style="width: 120px; height: 120px; object-fit: cover;">
+                            <h4 class="mb-1" id="childNameDisplay"></h4>
+                            <p class="text-muted mb-0" id="parentNameDisplay"></p>
+                        </div>
+                    </div>
+                    <div class="search-section mb-4">
+                        <div class="mb-3">
+                            <label for="searchInput" class="form-label">Search Child</label>
+                            <div class="search-input-container">
+                                <input type="text" class="form-control search-input" id="searchInput" placeholder="Type child or parent name...">
+                            </div>
+                        </div>
+                        <div id="searchResults" class="list-group mb-3"></div>
+                        <input type="hidden" name="child_id" id="selectedChildId">
+                        <input type="hidden" name="action" id="attendanceAction" value="sign_in">
+                        <div id="childInfo" class="d-none">
+                            <div class="mb-3">
+                                <label class="form-label">Parent</label>
+                                <input type="text" class="form-control" id="parentName" readonly>
+                            </div>
+                        </div>
+                        <div class="btn-group">
+                            <button type="submit" class="btn btn-primary" id="signInButton">Sign In</button>
+                            <button type="submit" class="btn btn-outline-danger" id="signOutButton">Sign Out</button>
+                        </div>
+                    </div>
+                </form>
+                
+            </div>
+
                     
-                    {% if error_message %}
-                    <div class="alert alert-danger mt-3">
-                        {{ error_message }}
-                    </div>
-                    {% endif %}
+
                     
                     {% if signed_in_children %}
                     <div class="mt-4">
@@ -66,15 +726,94 @@
 
 {% block extra_js %}
 <script>
+// Function to automatically dismiss messages after 5 seconds
+function autoDismissMessages() {
+    const messages = document.querySelectorAll('.alert');
+    messages.forEach(msg => {
+        // Check if the message is new (not dismissed)
+        if (!msg.classList.contains('alert-dismissed')) {
+            msg.classList.add('alert-dismissed');
+            setTimeout(() => {
+                msg.remove();
+            }, 5000);
+        }
+    });
+}
+
+// Call the function when the page loads and whenever new messages appear
+// Only clear alerts if they exist
+const clearAlerts = () => {
+    const alerts = document.querySelectorAll('.alert');
+    if (alerts.length > 0) {
+        alerts.forEach(alert => {
+            alert.remove();
+        });
+    }
+};
+
+// Clear alerts after 5 seconds
+setTimeout(clearAlerts, 5000);
+
+// Update clock and date
+document.addEventListener('DOMContentLoaded', updateClock);
+
+function updateClock() {
+    const timeElement = document.getElementById('clock-time');
+    const dateElement = document.getElementById('clock-date');
+    
+    const now = new Date();
+    const hours = now.getHours();
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const seconds = String(now.getSeconds()).padStart(2, '0');
+    
+    // Format time as 12-hour with AM/PM
+    const formattedTime = `${hours % 12 || 12}:${minutes}:${seconds} ${hours >= 12 ? 'PM' : 'AM'}`;
+    
+    // Format date as Month, Day Year with comma
+    const options = { month: 'long', day: 'numeric', year: 'numeric' };
+    const formattedDate = now.toLocaleDateString('en-US', options).replace(/,/g, '');
+    
+    if (timeElement) {
+        timeElement.textContent = formattedTime;
+    }
+    if (dateElement) {
+        dateElement.textContent = formattedDate;
+    }
+    
+    // Update every second
+    setTimeout(updateClock, 1000);
+}
+
+// Also listen for new messages being added
+const observer = new MutationObserver(function(mutations) {
+    mutations.forEach(function(mutation) {
+        if (mutation.addedNodes.length) {
+            mutation.addedNodes.forEach(function(node) {
+                if (node.classList && node.classList.contains('alert')) {
+                    // Only dismiss if it's a new alert
+                    if (!node.classList.contains('alert-dismissed')) {
+                        autoDismissMessages();
+                    }
+                }
+            });
+        }
+    });
+});
+
+// Start observing the body for new alerts
+observer.observe(document.body, { childList: true, subtree: true });
+
 // Global function for selecting a child
 function selectChild(id, childName, parentName) {
     const searchInput = document.getElementById('searchInput');
     const searchResults = document.getElementById('searchResults');
     const childInfo = document.getElementById('childInfo');
-    const selectedParentName = document.getElementById('selectedParentName');
     const selectedChildId = document.getElementById('selectedChildId');
-    const attendanceType = document.getElementById('attendanceType');
-    const attendanceTypeSelect = document.getElementById('attendanceTypeSelect');
+    const parentNameInput = document.getElementById('parentName');
+    const childProfile = document.querySelector('.child-profile');
+    const childProfilePic = document.getElementById('childProfilePic');
+    const childNameDisplay = document.getElementById('childNameDisplay');
+    const parentNameDisplay = document.getElementById('parentNameDisplay');
     
     // Update the search input with the selected child's name
     searchInput.value = childName;
@@ -84,28 +823,34 @@ function selectChild(id, childName, parentName) {
     
     // Update the hidden form fields
     selectedChildId.value = id;
-    selectedParentName.value = parentName;
+    parentNameInput.value = parentName;
     
     // Show the child info section
     childInfo.classList.remove('d-none');
     
-    // Reset attendance type to default
-    attendanceType.value = 'IN';
-    attendanceTypeSelect.value = 'IN';
+    // Show the child profile section
+    childProfile.classList.remove('d-none');
+    childNameDisplay.textContent = childName;
+    parentNameDisplay.textContent = `Parent: ${parentName}`;
     
-    // Show success message
-    const successMessage = document.createElement('div');
-    successMessage.className = 'alert alert-success alert-dismissible fade show mt-2';
-    successMessage.innerHTML = `
-        <strong>${escapeHtml(childName)}</strong> selected successfully!
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    `;
-    childInfo.insertBefore(successMessage, childInfo.firstChild);
+    // Update the profile picture
+    fetch(`{% url 'attendance:child_profile' %}?id=${id}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.profile_picture) {
+                childProfilePic.src = data.profile_picture;
+            } else {
+                // Show default image if no profile picture
+                childProfilePic.src = '{% static "images/default-avatar.png" %}';
+            }
+        })
+        .catch(error => {
+            console.error('Error loading profile picture:', error);
+            // Show default image on error
+            childProfilePic.src = '{% static "images/default-avatar.png" %}';
+        });
     
-    // Hide success message after 3 seconds
-    setTimeout(() => {
-        successMessage.remove();
-    }, 3000);
+
 }
 
 function toggleAttendanceType() {
@@ -119,7 +864,11 @@ function toggleAttendanceType() {
     
     // Update the form action URL to include the attendance type
     const form = document.getElementById('attendanceForm');
-    form.action = form.action + '?type=' + attendanceTypeSelect.value;
+    if (form) {
+        // Remove any existing type parameter
+        form.action = form.action.split('?')[0];
+        form.action += '?type=' + attendanceTypeSelect.value;
+    }
 }
 
 // Helper function to escape HTML
@@ -139,13 +888,54 @@ document.addEventListener('DOMContentLoaded', function() {
     loadingIndicator.className = 'text-center mb-3';
     loadingIndicator.innerHTML = '<div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div>';
 
+    // Handle form submission
+    const form = document.getElementById('attendanceForm');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            const actionInput = document.getElementById('attendanceAction');
+            const signOutButton = document.getElementById('signOutButton');
+            const signInButton = document.getElementById('signInButton');
+            
+            // Determine action based on which button was clicked
+            if (e.submitter === signOutButton) {
+                actionInput.value = 'sign_out';
+            } else {
+                actionInput.value = 'sign_in';
+            }
+        });
+    }
+
     searchInput.addEventListener('input', function() {
         const searchTerm = this.value.trim();
         if (searchTerm.length >= 2) {
             searchResults.innerHTML = '';
             searchResults.appendChild(loadingIndicator);
             
-            fetch(`{% url 'attendance:search_children' %}?q=${encodeURIComponent(searchTerm)}`)
+            // Get CSRF token from cookie
+            function getCookie(name) {
+                let cookieValue = null;
+                if (document.cookie && document.cookie !== '') {
+                    const cookies = document.cookie.split(';');
+                    for (let i = 0; i < cookies.length; i++) {
+                        const cookie = cookies[i].trim();
+                        if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                            cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                            break;
+                        }
+                    }
+                }
+                return cookieValue;
+            }
+            
+            const csrftoken = getCookie('csrftoken');
+            
+            fetch(`{% url 'attendance:search_children' %}?q=${encodeURIComponent(searchTerm)}`, {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': csrftoken
+                }
+            })
                 .then(response => {
                     if (!response.ok) {
                         throw new Error('Search failed');
@@ -157,13 +947,16 @@ document.addEventListener('DOMContentLoaded', function() {
                         searchResults.innerHTML = '<div class="text-center text-muted">No results found</div>';
                     } else {
                         searchResults.innerHTML = data.map(child => `
-                            <a href="#" class="list-group-item list-group-item-action" 
+                            <a href="#" class="list-group-item list-group-item-action d-flex align-items-center" 
                                onclick="selectChild(${child.id}, '${escapeHtml(child.name)}', '${escapeHtml(child.parent__name)}')">
-                                <div class="d-flex w-100 justify-content-between">
-                                    <h6 class="mb-1">${escapeHtml(child.name)}</h6>
-                                    <small>${escapeHtml(child.parent__name)}</small>
+                                <div class="d-flex align-items-center">
+                                    <img src="${child.profile_picture}" alt="${escapeHtml(child.name)}" 
+                                         class="rounded-circle me-3" style="width: 40px; height: 40px; object-fit: cover;">
+                                    <div>
+                                        <h6 class="mb-1">${escapeHtml(child.name)}</h6>
+                                        <small class="text-muted">${escapeHtml(child.parent__name)}</small>
+                                    </div>
                                 </div>
-                                <small class="text-muted">Child of ${escapeHtml(child.parent__name)}</small>
                             </a>
                         `).join('');
                     }
