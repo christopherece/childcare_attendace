@@ -71,6 +71,12 @@ def search_children(request):
         Q(name__icontains=query) | Q(parent__name__icontains=query)
     ).values('id', 'name', 'parent__name', 'profile_picture')
     
+    # Get today's attendance records
+    today = timezone.now().date()
+    today_attendances = Attendance.objects.filter(
+        created_at__date=today
+    ).values('child_id', 'created_at')
+    
     # Convert the QuerySet to a list and format the response
     response_data = []
     for child in children:
@@ -85,11 +91,25 @@ def search_children(request):
             except Exception as e:
                 print(f"Error building URL for profile picture: {e}")
         
+        # Check attendance status
+        attendance_status = None
+        if child['id'] in [a['child_id'] for a in today_attendances]:
+            # Get the latest attendance record for this child
+            latest_attendance = next((a for a in today_attendances if a['child_id'] == child['id']), None)
+            if latest_attendance:
+                # If there's an even number of records, they're signed out
+                child_records = [a for a in today_attendances if a['child_id'] == child['id']]
+                if len(child_records) % 2 == 0:
+                    attendance_status = 'Signed Out'
+                else:
+                    attendance_status = 'Signed In'
+
         response_data.append({
             'id': child['id'],
             'name': child['name'],
             'parent__name': child['parent__name'],
-            'profile_picture': profile_picture_url
+            'profile_picture': profile_picture_url,
+            'attendance_status': attendance_status
         })
     
     return JsonResponse(response_data, safe=False)
@@ -104,16 +124,28 @@ def child_profile(request):
         child = Child.objects.get(id=child_id)
         profile_picture_url = None
         if child.profile_picture:
-            # Get the relative path from the profile_picture field
-            # Extract the filename from the path
-            filename = child.profile_picture.name.split('/')[-1]
-            # Use the correct static URL
-            profile_picture_url = f"/static/images/child_pix/{filename}"
+            profile_picture_url = f"/static/images/child_pix/{child.profile_picture.name.split('/')[-1]}"
+        
+        # Get today's attendance records for this child
+        today = timezone.now().date()
+        child_records = Attendance.objects.filter(
+            child=child,
+            created_at__date=today
+        ).order_by('created_at')
+        
+        # Determine attendance status
+        attendance_status = None
+        if child_records.exists():
+            if len(child_records) % 2 == 0:
+                attendance_status = 'Signed Out'
+            else:
+                attendance_status = 'Signed In'
         
         return JsonResponse({
             'profile_picture': profile_picture_url,
             'name': child.name,
-            'parent_name': child.parent.name
+            'parent_name': child.parent.name,
+            'attendance_status': attendance_status
         })
     except Child.DoesNotExist:
         return JsonResponse({'error': 'Child not found'}, status=404)

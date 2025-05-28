@@ -29,6 +29,12 @@
         border: 2px solid #e3f2fd;
         width: 100%;
         margin-bottom: 2rem;
+        min-height: 100%;
+    }
+
+    .row {
+        display: flex;
+        align-items: stretch;
     }
 
     .card-lg:hover {
@@ -421,6 +427,11 @@
     /* Today's Schedule card specific styles */
     .today-schedule-card .card-body {
         padding: 0;
+        flex: 1;
+    }
+
+    .today-schedule-card .schedule-section {
+        flex: 1;
     }
 
     .today-schedule-card .list-group-item {
@@ -833,7 +844,7 @@ function selectChild(id, childName, parentName) {
     childNameDisplay.textContent = childName;
     parentNameDisplay.textContent = `Parent: ${parentName}`;
     
-    // Update the profile picture
+    // Update the profile picture and get attendance status
     fetch(`{% url 'attendance:child_profile' %}?id=${id}`)
         .then(response => response.json())
         .then(data => {
@@ -843,11 +854,21 @@ function selectChild(id, childName, parentName) {
                 // Show default image if no profile picture
                 childProfilePic.src = '{% static "images/default-avatar.png" %}';
             }
+            
+            // Update the status display
+            let statusText = '';
+            if (data.attendance_status) {
+                statusText = `${data.attendance_status} - ${data.parent_name}`;
+            } else {
+                statusText = 'Not signed in today';
+            }
+            parentNameDisplay.textContent = statusText;
         })
         .catch(error => {
             console.error('Error loading profile picture:', error);
             // Show default image on error
             childProfilePic.src = '{% static "images/default-avatar.png" %}';
+            parentNameDisplay.textContent = 'Error loading status';
         });
     
 
@@ -955,6 +976,12 @@ document.addEventListener('DOMContentLoaded', function() {
                                     <div>
                                         <h6 class="mb-1">${escapeHtml(child.name)}</h6>
                                         <small class="text-muted">${escapeHtml(child.parent__name)}</small>
+                                        <small class="text-muted mt-1">
+                                            <span class="attendance-status ${child.attendance_status ? 'd-block' : 'd-none'}">
+                                                <i class="fas fa-circle me-1 ${child.attendance_status === 'Signed In' ? 'text-success' : 'text-danger'}"></i>
+                                                ${child.attendance_status}
+                                            </span>
+                                        </small>
                                     </div>
                                 </div>
                             </a>
