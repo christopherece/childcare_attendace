@@ -1,0 +1,88 @@
+{% extends 'attendance/base.html' %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Attendance Records</h3>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <input type="text" id="childFilter" class="form-control" placeholder="Filter by child name...">
+                    </div>
+                    <div class="col-md-4">
+                        <input type="date" id="dateFilter" class="form-control">
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Child Name</th>
+                                <th>Parent Name</th>
+                                <th>Date</th>
+                                <th>Status</th>
+                                <th>Sign In Time</th>
+                                <th>Sign Out Time</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for record in attendance_data %}
+                            <tr>
+                                <td>{{ record.child.name }}</td>
+                                <td>{{ record.parent.name }}</td>
+                                <td>{{ record.date|date:"Y-m-d" }}</td>
+                                <td>
+                                    <span class="badge {% if record.status == 'Signed Out' %}bg-success{% else %}bg-primary{% endif %}">
+                                        {{ record.status }}
+                                    </span>
+                                </td>
+                                <td>{{ record.sign_in_time|time:"H:i:s" }}</td>
+                                <td>
+                                    {% if record.sign_out_time %}
+                                        {{ record.sign_out_time|time:"H:i:s" }}
+                                        {{ attendance.sign_out_time|time:"H:i:s" }}
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const childFilter = document.getElementById('childFilter');
+    const dateFilter = document.getElementById('dateFilter');
+    const rows = document.querySelectorAll('tbody tr');
+
+    childFilter.addEventListener('input', filterTable);
+    dateFilter.addEventListener('change', filterTable);
+
+    function filterTable() {
+        const childName = childFilter.value.toLowerCase();
+        const date = dateFilter.value;
+        
+        rows.forEach(row => {
+            const childNameCell = row.cells[0].textContent.toLowerCase();
+            const dateCell = row.cells[2].textContent;
+            
+            const matchesChild = childName ? childNameCell.includes(childName) : true;
+            const matchesDate = date ? dateCell === date : true;
+            
+            row.style.display = matchesChild && matchesDate ? '' : 'none';
+        });
+    }
+});
+</script>
+{% endblock %}

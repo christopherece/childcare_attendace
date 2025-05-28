@@ -1,0 +1,181 @@
+{% extends 'attendance/base.html' %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-6 offset-md-3">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Child Selection</h3>
+            </div>
+            <div class="card-body">
+                <form method="POST" id="attendanceForm">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="searchInput" class="form-label">Search Child</label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="searchInput" placeholder="Type child or parent name...">
+                            <button class="btn btn-outline-secondary" type="button" id="searchButton">
+                                <i class="fas fa-search"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div id="searchResults" class="list-group mb-3"></div>
+                    <input type="hidden" name="child_id" id="selectedChildId">
+                    
+                    <div id="childInfo" class="d-none">
+                        <div class="mb-3">
+                            <label class="form-label">Parent</label>
+                            <input type="text" class="form-control" id="selectedParentName" readonly>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Action</label>
+                            <div class="btn-group w-100" role="group">
+                                <input type="radio" class="btn-check" name="action" id="signIn" value="sign_in" checked>
+                                <label class="btn btn-outline-primary" for="signIn">Sign In</label>
+                                <input type="radio" class="btn-check" name="action" id="signOut" value="sign_out">
+                                <label class="btn btn-outline-danger" for="signOut">Sign Out</label>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">Submit</button>
+                    </div>
+                    
+                    {% if error_message %}
+                    <div class="alert alert-danger mt-3">
+                        {{ error_message }}
+                    </div>
+                    {% endif %}
+                    
+                    {% if signed_in_children %}
+                    <div class="mt-4">
+                        <h5>Currently Signed In Children</h5>
+                        <ul class="list-group">
+                            {% for child_id in signed_in_children %}
+                            <li class="list-group-item">
+                                {{ child_id }}
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Global function for selecting a child
+function selectChild(id, childName, parentName) {
+    const searchInput = document.getElementById('searchInput');
+    const searchResults = document.getElementById('searchResults');
+    const childInfo = document.getElementById('childInfo');
+    const selectedParentName = document.getElementById('selectedParentName');
+    const selectedChildId = document.getElementById('selectedChildId');
+    const attendanceType = document.getElementById('attendanceType');
+    const attendanceTypeSelect = document.getElementById('attendanceTypeSelect');
+    
+    // Update the search input with the selected child's name
+    searchInput.value = childName;
+    
+    // Clear the search results
+    searchResults.innerHTML = '';
+    
+    // Update the hidden form fields
+    selectedChildId.value = id;
+    selectedParentName.value = parentName;
+    
+    // Show the child info section
+    childInfo.classList.remove('d-none');
+    
+    // Reset attendance type to default
+    attendanceType.value = 'IN';
+    attendanceTypeSelect.value = 'IN';
+    
+    // Show success message
+    const successMessage = document.createElement('div');
+    successMessage.className = 'alert alert-success alert-dismissible fade show mt-2';
+    successMessage.innerHTML = `
+        <strong>${escapeHtml(childName)}</strong> selected successfully!
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    childInfo.insertBefore(successMessage, childInfo.firstChild);
+    
+    // Hide success message after 3 seconds
+    setTimeout(() => {
+        successMessage.remove();
+    }, 3000);
+}
+
+function toggleAttendanceType() {
+    const attendanceType = document.getElementById('attendanceType');
+    const attendanceTypeSelect = document.getElementById('attendanceTypeSelect');
+    attendanceType.value = attendanceTypeSelect.value;
+    
+    // Update the submit button text based on attendance type
+    const submitButton = document.querySelector('#attendanceForm button[type="submit"]');
+    submitButton.textContent = attendanceTypeSelect.value === 'IN' ? 'Sign In' : 'Sign Out';
+    
+    // Update the form action URL to include the attendance type
+    const form = document.getElementById('attendanceForm');
+    form.action = form.action + '?type=' + attendanceTypeSelect.value;
+}
+
+// Helper function to escape HTML
+function escapeHtml(unsafe) {
+    return unsafe
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('searchInput');
+    const searchResults = document.getElementById('searchResults');
+    const loadingIndicator = document.createElement('div');
+    loadingIndicator.className = 'text-center mb-3';
+    loadingIndicator.innerHTML = '<div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div>';
+
+    searchInput.addEventListener('input', function() {
+        const searchTerm = this.value.trim();
+        if (searchTerm.length >= 2) {
+            searchResults.innerHTML = '';
+            searchResults.appendChild(loadingIndicator);
+            
+            fetch(`{% url 'attendance:search_children' %}?q=${encodeURIComponent(searchTerm)}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Search failed');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.length === 0) {
+                        searchResults.innerHTML = '<div class="text-center text-muted">No results found</div>';
+                    } else {
+                        searchResults.innerHTML = data.map(child => `
+                            <a href="#" class="list-group-item list-group-item-action" 
+                               onclick="selectChild(${child.id}, '${escapeHtml(child.name)}', '${escapeHtml(child.parent__name)}')">
+                                <div class="d-flex w-100 justify-content-between">
+                                    <h6 class="mb-1">${escapeHtml(child.name)}</h6>
+                                    <small>${escapeHtml(child.parent__name)}</small>
+                                </div>
+                                <small class="text-muted">Child of ${escapeHtml(child.parent__name)}</small>
+                            </a>
+                        `).join('');
+                    }
+                })
+                .catch(error => {
+                    searchResults.innerHTML = '<div class="text-center text-danger">Error searching for children</div>';
+                    console.error('Search error:', error);
+                });
+        } else {
+            searchResults.innerHTML = '';
+        }
+    });
+});
+</script>
+{% endblock %}
