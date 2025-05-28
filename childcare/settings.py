@@ -30,6 +30,13 @@ ALLOWED_HOSTS = []
 
 # Application definition
 
+# Static files (CSS, JavaScript, Images)
+STATIC_URL = 'static/'
+STATICFILES_DIRS = [
+    BASE_DIR / 'static',
+]
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
