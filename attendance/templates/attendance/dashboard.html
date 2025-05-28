@@ -848,12 +848,8 @@ function selectChild(id, childName, parentName) {
     fetch(`{% url 'attendance:child_profile' %}?id=${id}`)
         .then(response => response.json())
         .then(data => {
-            if (data.profile_picture) {
-                childProfilePic.src = data.profile_picture;
-            } else {
-                // Show default image if no profile picture
-                childProfilePic.src = '{% static "images/default-avatar.png" %}';
-            }
+            // Use user-default.png as default image
+            childProfilePic.src = data.profile_picture || '/static/attendance/img/user-default.png';
             
             // Update the status display
             let statusText = '';
@@ -977,7 +973,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             <a href="#" class="list-group-item list-group-item-action d-flex align-items-center" 
                                onclick="selectChild(${child.id}, '${escapeHtml(child.name)}', '${escapeHtml(child.parent__name)}')">
                                 <div class="d-flex align-items-center">
-                                    <img src="${child.profile_picture}" alt="${escapeHtml(child.name)}" 
+                                    <img src="${child.profile_picture || '/static/attendance/img/user-default.png'}" alt="${escapeHtml(child.name)}" 
                                          class="rounded-circle me-3" style="width: 40px; height: 40px; object-fit: cover;">
                                     <div>
                                         <h6 class="mb-1">${escapeHtml(child.name)}</h6>

@@ -90,6 +90,9 @@ def search_children(request):
                 profile_picture_url = f"/static/images/child_pix/{filename}"
             except Exception as e:
                 print(f"Error building URL for profile picture: {e}")
+                profile_picture_url = '/static/images/child_pix/user-default.png'
+        else:
+            profile_picture_url = '/static/images/child_pix/user-default.png'
         
         # Check attendance status
         attendance_status = None
@@ -122,9 +125,7 @@ def child_profile(request):
     
     try:
         child = Child.objects.get(id=child_id)
-        profile_picture_url = None
-        if child.profile_picture:
-            profile_picture_url = f"/static/images/child_pix/{child.profile_picture.name.split('/')[-1]}"
+        profile_picture_url = f"/static/images/child_pix/{child.profile_picture.name.split('/')[-1]}" if child.profile_picture else '/static/images/child_pix/user-default.png'
         
         # Get today's attendance records for this child
         today = timezone.now().date()

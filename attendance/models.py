@@ -24,7 +24,7 @@ class Child(models.Model):
     medical_conditions = models.TextField(blank=True, null=True)
     emergency_contact = models.CharField(max_length=100)
     emergency_phone = models.CharField(max_length=15)
-    profile_picture = models.ImageField(upload_to='child_pictures/', blank=True, null=True)
+    profile_picture = models.ImageField(upload_to='static/images/child_pix/', blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -43,8 +43,11 @@ class Child(models.Model):
     def get_profile_picture_url(self):
         """Return the URL of the profile picture or a default image"""
         if self.profile_picture:
-            return self.profile_picture.url
-        return '/static/attendance/img/default-child.png'
+            # Get the relative path from the profile_picture field
+            relative_path = self.profile_picture.name
+            # Return the correct static URL
+            return f"/static/images/child_pix/{relative_path.split('/')[-1]}"
+        return '/static/images/child_pix/user-default.png'
 
 class Attendance(models.Model):
     child = models.ForeignKey(Child, on_delete=models.CASCADE)
