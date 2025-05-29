@@ -109,12 +109,12 @@ class Attendance(models.Model):
         today = timezone.now().date()
         records = cls.get_daily_attendance(child, today)
         # Can sign in if there are no records or if the last record was a sign-out
-        return len(records) == 0 or (len(records) == 1 and records[0].action_type == 'sign_out')
+        return len(records) == 0 or (len(records) % 2 == 0)
 
     @classmethod
     def can_sign_out(cls, child):
         """Check if a child can be signed out today"""
         today = timezone.now().date()
         records = cls.get_daily_attendance(child, today)
-        # Can sign out if there is exactly one sign-in record
-        return len(records) == 1 and records[0].action_type == 'sign_in'
+        # Can sign out if there is at least one sign-in record and the last record is a sign-in
+        return len(records) > 0 and (len(records) % 2 != 0)

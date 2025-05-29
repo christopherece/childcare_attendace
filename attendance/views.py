@@ -23,8 +23,11 @@ def dashboard(request):
             child = get_object_or_404(Child, id=child_id)
             
             if action == 'sign_in':
-                if not Attendance.can_sign_in(child):
-                    messages.error(request, f"{child.name} cannot be signed in today. ")
+                # Always allow sign-in at the start of the day
+                today = timezone.now().date()
+                records = Attendance.get_daily_attendance(child, today)
+                if len(records) > 0 and records.last().action_type == 'sign_in':
+                    messages.error(request, f"{child.name} is already signed in today.")
                     return render(request, 'attendance/dashboard.html')
                 
                 # Create new sign-in record
