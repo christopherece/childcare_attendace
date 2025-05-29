@@ -1,13 +1,15 @@
 from django.shortcuts import render
 from django.db.models import Count, Avg, Sum
 from datetime import datetime, timedelta
+from django.utils import timezone
+from django.db.models.functions import ExtractHour
 from attendance.models import Child, Parent, Attendance
 
 
 def admin_portal(request):
-    # Get today's date
-    today = datetime.now().date()
-    current_time = datetime.now()
+    # Get today's date using timezone-aware datetime
+    today = timezone.now().date()
+    current_time = timezone.now()
     
     # Get all children with their attendance status
     children = Child.objects.all()
@@ -17,7 +19,7 @@ def admin_portal(request):
         # Get today's attendance records for this child
         todays_attendance = Attendance.objects.filter(
             child=child,
-            created_at__date=today
+            timestamp__date=today
         ).order_by('timestamp')
         
         status = "Not Signed In"
@@ -45,52 +47,69 @@ def admin_portal(request):
                 'parent': child.parent
             })
     
-    # Total number of children
-    total_children = Child.objects.count()
+    # Calculate current attendance stats
+    currently_signed_in = children.filter(
+        attendance__timestamp__date=today,
+        attendance__timestamp__lte=current_time
+    ).distinct().count()
     
-    # Total number of parents
-    total_parents = Parent.objects.count()
+    # Calculate average daily attendance rate
+    thirty_days_ago = today - timedelta(days=30)
+    total_attendance_records = Attendance.objects.filter(
+        timestamp__date__gte=thirty_days_ago
+    ).count()
+    total_possible_attendances = children.count() * 30
+    average_attendance_rate = (total_attendance_records / total_possible_attendances) * 100 if total_possible_attendances > 0 else 0
     
-    # Today's attendance statistics
-    todays_attendance = Attendance.objects.filter(
-        created_at__date=today
-    )
+    # Calculate average sign-in and sign-out times
+    today_attendances = Attendance.objects.filter(timestamp__date=today)
+    if today_attendances.exists():
+        # Get all sign-in times as strings
+        sign_in_times = [a.timestamp.time() for a in today_attendances]
+        
+        # Convert times to minutes since midnight
+        minutes_since_midnight = [t.hour * 60 + t.minute for t in sign_in_times]
+        
+        # Calculate average in minutes
+        avg_minutes = sum(minutes_since_midnight) / len(minutes_since_midnight)
+        
+        # Convert back to time
+        avg_sign_in_time = (datetime.min + timedelta(minutes=avg_minutes)).time()
+        
+        # For sign-out time, only consider times after 12 hours ago
+        # Use timezone-aware datetime for comparison
+        twelve_hours_ago = current_time - timedelta(hours=12)
+        sign_out_times = [a.timestamp.time() for a in today_attendances if a.timestamp >= twelve_hours_ago]
+        if sign_out_times:
+            minutes_since_midnight = [t.hour * 60 + t.minute for t in sign_out_times]
+            avg_minutes = sum(minutes_since_midnight) / len(minutes_since_midnight)
+            avg_sign_out_time = (datetime.min + timedelta(minutes=avg_minutes)).time()
+        else:
+            avg_sign_out_time = None
+    else:
+        avg_sign_in_time = None
+        avg_sign_out_time = None
     
-    todays_sign_ins = todays_attendance.count()
-    todays_sign_outs = todays_attendance.count()
+    # Calculate peak attendance hour
+    peak_hour = today_attendances.annotate(
+        hour=ExtractHour('timestamp')
+    ).values('hour').annotate(
+        count=Count('id')
+    ).order_by('-count').first()
     
-    # Weekly statistics
-    week_start = today - timedelta(days=today.weekday())
-    week_end = week_start + timedelta(days=6)
-    
-    weekly_attendance = Attendance.objects.filter(
-        created_at__date__range=(week_start, week_end)
-    )
-    
-    weekly_sign_ins = weekly_attendance.count()
-    
-    # Monthly statistics
-    month_start = today.replace(day=1)
-    month_end = today
-    
-    monthly_attendance = Attendance.objects.filter(
-        created_at__date__range=(month_start, month_end)
-    )
-    
-    monthly_sign_ins = monthly_attendance.count()
-    
-    # Most active children (top 5)
+    # Get most active children (top 5)
     active_children = Child.objects.annotate(
         attendance_count=Count('attendance__id')
     ).order_by('-attendance_count')[:5]
     
     context = {
-        'total_children': total_children,
-        'total_parents': total_parents,
-        'todays_sign_ins': todays_sign_ins,
-        'todays_sign_outs': todays_sign_outs,
-        'weekly_sign_ins': weekly_sign_ins,
-        'monthly_sign_ins': monthly_sign_ins,
+        'total_children': children.count(),
+        'total_parents': Parent.objects.count(),
+        'currently_signed_in': currently_signed_in,
+        'average_attendance_rate': round(average_attendance_rate, 1),
+        'avg_sign_in_time': avg_sign_in_time,
+        'avg_sign_out_time': avg_sign_out_time,
+        'peak_hour': peak_hour['hour'] if peak_hour else None,
         'active_children': active_children,
         'children_data': children_data,
     }

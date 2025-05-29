@@ -718,13 +718,43 @@
                     {% if signed_in_children %}
                     <div class="mt-4">
                         <h5>Currently Signed In Children</h5>
-                        <ul class="list-group">
-                            {% for child_id in signed_in_children %}
-                            <li class="list-group-item">
-                                {{ child_id }}
-                            </li>
-                            {% endfor %}
-                        </ul>
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Child Name</th>
+                                        <th>Parent Name</th>
+                                        <th>Sign In Time</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for child_data in signed_in_children %}
+                                    <tr>
+                                        <td>{{ child_data.child.name }}</td>
+                                        <td>{{ child_data.child.parent.name }}</td>
+                                        <td>
+                                            {% if child_data.sign_in_time %}
+                                                {{ child_data.sign_in_time|time:"H:i" }}
+                                            {% else %}
+                                                -
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <form method="post" class="d-inline">
+                                                {% csrf_token %}
+                                                <input type="hidden" name="child_id" value="{{ child_data.child.id }}">
+                                                <input type="hidden" name="action" value="sign_out">
+                                                <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Are you sure you want to sign out {{ child_data.child.name }}?')">
+                                                    Sign Out
+                                                </button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                     {% endif %}
                 </form>

@@ -22,12 +22,21 @@
                     <li class="nav-item">
                         <a class="nav-link" href="{% url 'attendance:dashboard' %}">Dashboard</a>
                     </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{% url 'attendance:attendance_records' %}">Records</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{% url 'reports:admin_portal' %}">Admin Portal</a>
-                    </li>
+                    {% if user.is_authenticated %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'attendance:attendance_records' %}">Records</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'reports:admin_portal' %}">Admin Portal</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'attendance:sign_out' %}">Sign Out</a>
+                        </li>
+                    {% else %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'attendance:sign_in' %}">Sign In</a>
+                        </li>
+                    {% endif %}
                 </ul>
             </div>
         </div>

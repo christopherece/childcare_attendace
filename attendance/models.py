@@ -1,5 +1,6 @@
 from django.db import models
 from django.utils import timezone
+from datetime import timedelta
 
 class Parent(models.Model):
     name = models.CharField(max_length=100)
@@ -55,6 +56,47 @@ class Attendance(models.Model):
     timestamp = models.DateTimeField(default=timezone.now)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    action_type = models.CharField(max_length=10, choices=[('sign_in', 'Sign In'), ('sign_out', 'Sign Out')], default='sign_in')
     
+    class Meta:
+        ordering = ['-timestamp']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['child', 'timestamp'],
+                name='unique_child_attendance_per_day'
+            )
+        ]
+
     def __str__(self):
-        return f"{self.child.name} - {self.timestamp.strftime('%Y-%m-%d %H:%M:%S')}"
+        return f"{self.child.name} - {self.action_type} - {self.timestamp.strftime('%Y-%m-%d %H:%M:%S')}"
+
+    @classmethod
+    def get_daily_attendance(cls, child, date):
+        """Get all attendance records for a child on a specific date"""
+        return cls.objects.filter(
+            child=child,
+            timestamp__date=date
+        ).order_by('timestamp')
+
+    @classmethod
+    def is_signed_in(cls, child):
+        """Check if a child is currently signed in"""
+        today = timezone.now().date()
+        records = cls.get_daily_attendance(child, today)
+        return len(records) % 2 != 0 and records.last().action_type == 'sign_in'
+
+    @classmethod
+    def can_sign_in(cls, child):
+        """Check if a child can be signed in today"""
+        today = timezone.now().date()
+        records = cls.get_daily_attendance(child, today)
+        # Can sign in if there are no records or if the last record was a sign-out
+        return len(records) == 0 or (len(records) == 1 and records[0].action_type == 'sign_out')
+
+    @classmethod
+    def can_sign_out(cls, child):
+        """Check if a child can be signed out today"""
+        today = timezone.now().date()
+        records = cls.get_daily_attendance(child, today)
+        # Can sign out if there is exactly one sign-in record
+        return len(records) == 1 and records[0].action_type == 'sign_in'

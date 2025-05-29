@@ -63,7 +63,7 @@ ROOT_URLCONF = 'childcare.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [BASE_DIR / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -77,14 +77,24 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'childcare.wsgi.application'
 
+# Authentication settings
+LOGIN_REDIRECT_URL = '/reports/admin-portal/'
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
 DATABASES = {
-    'default': {
+    'default1': {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': BASE_DIR / 'db.sqlite3',
+    },
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'childcare_tbl',
+        'USER': 'admsrv',
+        'PASSWORD': 'Mmsucit1502',
+        'HOST': 'localhost',
+        'PORT': '5432',
     }
 }
 
@@ -113,7 +123,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'Pacific/Auckland'
 
 USE_I18N = True
 

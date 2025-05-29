@@ -5,7 +5,7 @@
 <div class="dashboard-container">
     <h2 class="mb-4">Admin Portal - Attendance Reports</h2>
     
-    <!-- Overview Cards -->
+    <!-- Current Attendance Stats -->
     <div class="row mb-4">
         <div class="col-md-3">
             <div class="card bg-primary text-white">
@@ -26,36 +26,63 @@
         <div class="col-md-3">
             <div class="card bg-info text-white">
                 <div class="card-body">
-                    <h5 class="card-title">Today's Sign Ins</h5>
-                    <h2 class="display-4">{{ todays_sign_ins }}</h2>
+                    <h5 class="card-title">Currently Signed In</h5>
+                    <h2 class="display-4">{{ currently_signed_in }}</h2>
                 </div>
             </div>
         </div>
         <div class="col-md-3">
             <div class="card bg-warning text-white">
                 <div class="card-body">
-                    <h5 class="card-title">Today's Sign Outs</h5>
-                    <h2 class="display-4">{{ todays_sign_outs }}</h2>
+                    <h5 class="card-title">Avg Attendance Rate</h5>
+                    <h2 class="display-4">{{ average_attendance_rate }}%</h2>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Statistics Cards -->
+    <!-- Time-Based Stats -->
     <div class="row mb-4">
-        <div class="col-md-6">
+        <div class="col-md-4">
             <div class="card">
                 <div class="card-body">
-                    <h5 class="card-title">Weekly Statistics</h5>
-                    <h3 class="text-primary">Sign Ins: {{ weekly_sign_ins }}</h3>
+                    <h5 class="card-title">Average Sign-In Time</h5>
+                    <h3 class="text-primary">{% if avg_sign_in_time %}{{ avg_sign_in_time|time:"H:i" }}{% else %}N/A{% endif %}</h3>
                 </div>
             </div>
         </div>
-        <div class="col-md-6">
+        <div class="col-md-4">
             <div class="card">
                 <div class="card-body">
-                    <h5 class="card-title">Monthly Statistics</h5>
-                    <h3 class="text-primary">Sign Ins: {{ monthly_sign_ins }}</h3>
+                    <h5 class="card-title">Average Sign-Out Time</h5>
+                    <h3 class="text-primary">{% if avg_sign_out_time %}{{ avg_sign_out_time|time:"H:i" }}{% else %}N/A{% endif %}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Peak Attendance Hour</h5>
+                    <h3 class="text-primary">{% if peak_hour %}{{ peak_hour }}:00{% else %}N/A{% endif %}</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Active Children -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Most Active Children (Last 30 Days)</h5>
+                    <div class="list-group">
+                        {% for child in active_children %}
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                            {{ child.name }}
+                            <span class="badge bg-primary rounded-pill">{{ child.attendance_count }} attendances</span>
+                        </div>
+                        {% endfor %}
+                    </div>
                 </div>
             </div>
         </div>
