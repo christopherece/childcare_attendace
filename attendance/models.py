@@ -2,10 +2,22 @@ from django.db import models
 from django.utils import timezone
 from datetime import timedelta
 
+class Center(models.Model):
+    name = models.CharField(max_length=100)
+    address = models.TextField()
+    phone = models.CharField(max_length=20)
+    email = models.EmailField(unique=True)
+    capacity = models.IntegerField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def __str__(self):
+        return self.name
+
 class Parent(models.Model):
     name = models.CharField(max_length=100)
     email = models.EmailField(unique=True)
-    phone = models.CharField(max_length=15, blank=True, null=True)
+    phone = models.CharField(max_length=20, blank=True, null=True)
     address = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -16,6 +28,7 @@ class Parent(models.Model):
 class Child(models.Model):
     name = models.CharField(max_length=100)
     parent = models.ForeignKey(Parent, on_delete=models.CASCADE, related_name='children')
+    center = models.ForeignKey(Center, on_delete=models.SET_NULL, null=True, blank=True, related_name='children')
     date_of_birth = models.DateField()
     gender = models.CharField(
         max_length=10,
@@ -24,12 +37,14 @@ class Child(models.Model):
     allergies = models.TextField(blank=True, null=True)
     medical_conditions = models.TextField(blank=True, null=True)
     emergency_contact = models.CharField(max_length=100)
-    emergency_phone = models.CharField(max_length=15)
+    emergency_phone = models.CharField(max_length=20)
     profile_picture = models.ImageField(upload_to='static/images/child_pix/', blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
     def __str__(self):
+        if self.center:
+            return f"{self.name} at {self.center.name}"
         return self.name
     
     def get_age(self):
@@ -53,6 +68,7 @@ class Child(models.Model):
 class Attendance(models.Model):
     child = models.ForeignKey(Child, on_delete=models.CASCADE)
     parent = models.ForeignKey(Parent, on_delete=models.CASCADE)
+    center = models.ForeignKey(Center, on_delete=models.SET_NULL, null=True, blank=True)
     timestamp = models.DateTimeField(default=timezone.now)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -68,7 +84,9 @@ class Attendance(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.child.name} - {self.action_type} - {self.timestamp.strftime('%Y-%m-%d %H:%M:%S')}"
+        if self.center:
+            return f"{self.child.name} {self.action_type} at {self.center.name} on {self.timestamp.strftime('%Y-%m-%d %H:%M:%S')}"
+        return f"{self.child.name} {self.action_type} on {self.timestamp.strftime('%Y-%m-%d %H:%M:%S')}"
 
     @classmethod
     def get_daily_attendance(cls, child, date):
