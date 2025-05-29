@@ -91,9 +91,9 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': 'childcare_tbl',
-        'USER': 'admsrv',
+        'USER': 'postgres',
         'PASSWORD': 'Mmsucit1502',
-        'HOST': 'localhost',
+        'HOST': '192.168.10.42',
         'PORT': '5432',
     }
 }
