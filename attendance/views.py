@@ -7,6 +7,8 @@ from .models import Child, Parent, Attendance
 from django.db.models import Q
 import json
 from django.utils import timezone
+from django.conf import settings
+from django.core.mail import send_mail
 
 def dashboard(request):
     # Clear any existing messages before processing the request
@@ -31,6 +33,31 @@ def dashboard(request):
                     action_type='sign_in'
                 )
                 messages.success(request, f"{child.name} has been signed in.")
+
+                # Send Email
+                try:
+                    # Format the message with proper spacing and line breaks
+                    message = f"""
+                    Child: {child.name}
+                    Action: Signed In
+                    Time: {timezone.now().strftime('%Y-%m-%d %H:%M:%S')}
+                    """
+                    
+                    send_mail(
+                        'Childcare Notification',
+                        message,
+                        settings.EMAIL_HOST_USER,
+                        [child.parent.email, 'christopheranchetaece@gmail.com'],
+                        fail_silently=False
+                    )
+                    print(f"Email sent successfully to {child.parent.email}")
+                except Exception as e:
+                    # Log the error with more details
+                    print(f"Email sending failed: {str(e)}")
+                    print(f"Failed to send email to: {child.parent.email}")
+                    print(f"Email configuration: {EMAIL_HOST_USER}")
+                    messages.error(request, f"Failed to send notification email: {str(e)}")
+
                 return render(request, 'attendance/dashboard.html')
             
             if action == 'sign_out':
@@ -45,6 +72,31 @@ def dashboard(request):
                     action_type='sign_out'
                 )
                 messages.success(request, f"{child.name} has been signed out.")
+
+                # Send Email
+                try:
+                    # Format the message with proper spacing and line breaks
+                    message = f"""
+                    Child: {child.name}
+                    Action: Signed Out
+                    Time: {timezone.now().strftime('%Y-%m-%d %H:%M:%S')}
+                    """
+                    
+                    send_mail(
+                        'Childcare Notification',
+                        message,
+                        settings.EMAIL_HOST_USER,
+                        [child.parent.email, 'christopheranchetaece@gmail.com'],
+                        fail_silently=False
+                    )
+                    print(f"Email sent successfully to {child.parent.email}")
+                except Exception as e:
+                    # Log the error with more details
+                    print(f"Email sending failed: {str(e)}")
+                    print(f"Failed to send email to: {child.parent.email}")
+                    print(f"Email configuration: {EMAIL_HOST_USER}")
+                    messages.error(request, f"Failed to send notification email: {str(e)}")
+
                 return render(request, 'attendance/dashboard.html')
     
     return render(request, 'attendance/dashboard.html')
