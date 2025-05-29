@@ -3,6 +3,8 @@ from django.db.models import Count, Avg, Sum
 from datetime import datetime, timedelta
 from django.utils import timezone
 from django.db.models.functions import ExtractHour
+from django.http import HttpResponse
+import csv
 from attendance.models import Child, Parent, Attendance
 
 
@@ -22,30 +24,82 @@ def admin_portal(request):
             timestamp__date=today
         ).order_by('timestamp')
         
-        status = "Not Signed In"
-        sign_in_time = None
-        sign_out_time = None
-        
+        is_signed_in = False
         if todays_attendance.exists():
-            # Get the first (sign-in) and last (sign-out) records
-            first_record = todays_attendance.first()
             last_record = todays_attendance.last()
-            
-            sign_in_time = first_record.timestamp
-            
-            if len(todays_attendance) == 2:
-                sign_out_time = last_record.timestamp
-                status = "Signed Out"
-            else:
-                status = "Signed In"
-            
-            children_data.append({
-                'child': child,
-                'status': status,
-                'sign_in_time': sign_in_time,
-                'sign_out_time': sign_out_time,
-                'parent': child.parent
-            })
+            is_signed_in = last_record.action_type == 'sign_in'
+        
+        children_data.append({
+            'child': child,
+            'is_signed_in': is_signed_in,
+            'attendance_records': todays_attendance
+        })
+    
+    # Calculate statistics
+    total_children = children.count()
+    total_signed_in = sum(1 for child_data in children_data if child_data['is_signed_in'])
+    
+    # Get attendance records for the last 7 days
+    week_ago = timezone.now() - timedelta(days=7)
+    weekly_records = Attendance.objects.filter(
+        timestamp__gte=week_ago
+    ).annotate(
+        hour=ExtractHour('timestamp')
+    )
+    
+    # Calculate average attendance per hour
+    hourly_stats = weekly_records.values('hour').annotate(
+        count=Count('id')
+    ).order_by('hour')
+    
+    context = {
+        'children_data': children_data,
+        'total_children': total_children,
+        'total_signed_in': total_signed_in,
+        'hourly_stats': hourly_stats,
+    }
+    
+    if request.GET.get('export_csv'):
+        # Create CSV response
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="attendance_report_{}.csv"'.format(today.strftime('%Y%m%d'))
+        
+        writer = csv.writer(response)
+        writer.writerow(['Child Name', 'Parent Name', 'Date', 'Time', 'Action'])
+        
+        for child_data in children_data:
+            child = child_data['child']
+            for record in child_data['attendance_records']:
+                writer.writerow([
+                    child.name,
+                    child.parent.name,
+                    record.timestamp.date().strftime('%Y-%m-%d'),
+                    record.timestamp.time().strftime('%H:%M:%S'),
+                    record.action_type
+                ])
+        
+        return response
+    
+    if request.GET.get('export_csv'):
+        # Create CSV response
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="attendance_report_{}.csv"'.format(today.strftime('%Y%m%d'))
+        
+        writer = csv.writer(response)
+        writer.writerow(['Child Name', 'Parent Name', 'Date', 'Time', 'Action'])
+        
+        for child_data in children_data:
+            child = child_data['child']
+            for record in child_data['attendance_records']:
+                writer.writerow([
+                    f"{child.first_name} {child.last_name}",
+                    f"{child.parent.first_name} {child.parent.last_name}",
+                    record.timestamp.date().strftime('%Y-%m-%d'),
+                    record.timestamp.time().strftime('%H:%M:%S'),
+                    record.action_type
+                ])
+        
+        return response
     
     # Calculate current attendance stats
     currently_signed_in = children.filter(

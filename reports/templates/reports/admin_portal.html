@@ -69,68 +69,83 @@
         </div>
     </div>
 
-    <!-- Active Children -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-body">
-                    <h5 class="card-title">Most Active Children (Last 30 Days)</h5>
-                    <div class="list-group">
-                        {% for child in active_children %}
-                        <div class="list-group-item d-flex justify-content-between align-items-center">
-                            {{ child.name }}
-                            <span class="badge bg-primary rounded-pill">{{ child.attendance_count }} attendances</span>
+    <div class="container mt-4">
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h2>Admin Portal</h2>
+                    <a href="?export_csv=1" class="btn btn-success">
+                        <i class="fas fa-file-csv"></i> Export to CSV
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Current Attendance Status</h5>
+                        <div class="table-responsive">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Child Name</th>
+                                        <th>Parent Name</th>
+                                        <th>Status</th>
+                                        <th>Sign In Time</th>
+                                        <th>Sign Out Time</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for child_data in children_data %}
+                                    <tr>
+                                        <td>{{ child_data.child.name }}</td>
+                                        <td>{{ child_data.child.parent.name }}</td>
+                                        <td>
+                                            {% if child_data.is_signed_in %}
+                                                <span class="badge bg-success">Signed In</span>
+                                            {% else %}
+                                                <span class="badge bg-warning">Not Signed In</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if child_data.attendance_records.first %}
+                                                {{ child_data.attendance_records.first.timestamp|date:"H:i" }}
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if child_data.attendance_records.last and child_data.attendance_records.last.action_type == 'sign_out' %}
+                                                {{ child_data.attendance_records.last.timestamp|date:"H:i" }}
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
                         </div>
-                        {% endfor %}
                     </div>
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- Current Attendance Status -->
-    <div class="card mb-4">
-        <div class="card-body">
-            <h5 class="card-title">Current Attendance Status</h5>
-            <div class="table-responsive">
-                <table class="table table-hover">
-                    <thead>
-                        <tr>
-                            <th>Child Name</th>
-                            <th>Parent Name</th>
-                            <th>Status</th>
-                            <th>Sign In Time</th>
-                            <th>Sign Out Time</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for child_data in children_data %}
-                        <tr>
-                            <td>{{ child_data.child.name }}</td>
-                            <td>{{ child_data.parent.name }}</td>
-                            <td>
-                                <span class="badge {% if child_data.status == 'Signed In' %}bg-success{% elif child_data.status == 'Signed Out' %}bg-danger{% else %}bg-warning{% endif %}">
-                                    {{ child_data.status }}
-                                </span>
-                            </td>
-                            <td>
-                                {% if child_data.sign_in_time %}
-                                    {{ child_data.sign_in_time|date:"H:i" }}
-                                {% else %}
-                                    -
-                                {% endif %}
-                            </td>
-                            <td>
-                                {% if child_data.sign_out_time %}
-                                    {{ child_data.sign_out_time|date:"H:i" }}
-                                {% else %}
-                                    -
-                                {% endif %}
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+        <div class="row mt-4">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Attendance Summary</h5>
+                        <p class="card-text">Total Children: <span class="badge bg-info">{{ total_children }}</span></p>
+                        <p class="card-text">Currently Signed In: <span class="badge bg-success">{{ total_signed_in }}</span></p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Weekly Attendance Statistics</h5>
+                        <canvas id="attendanceChart"></canvas>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
