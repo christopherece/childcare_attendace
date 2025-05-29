@@ -9,6 +9,7 @@ import json
 from django.utils import timezone
 from django.conf import settings
 from django.core.mail import send_mail
+from django.template.loader import render_to_string
 
 def dashboard(request):
     # Clear any existing messages before processing the request
@@ -36,19 +37,23 @@ def dashboard(request):
 
                 # Send Email
                 try:
-                    # Format the message with proper spacing and line breaks
-                    message = f"""
-                    Child: {child.name}
-                    Action: Signed In
-                    Time: {timezone.now().strftime('%Y-%m-%d %H:%M:%S')}
-                    """
+                    # Prepare email context
+                    context = {
+                        'child_name': child.name,
+                        'action_type': 'Signed In',
+                        'timestamp': timezone.now().strftime('%Y-%m-%d %H:%M:%S')
+                    }
+                    
+                    # Render HTML template
+                    html_message = render_to_string('emails/attendance_notification.html', context)
                     
                     send_mail(
-                        'Childcare Notification',
-                        message,
+                        'Childcare Attendance Notification',
+                        'Please view this email in a HTML-compatible email client.',
                         settings.EMAIL_HOST_USER,
                         [child.parent.email, 'christopheranchetaece@gmail.com'],
-                        fail_silently=False
+                        fail_silently=False,
+                        html_message=html_message
                     )
                     print(f"Email sent successfully to {child.parent.email}")
                 except Exception as e:
@@ -75,19 +80,23 @@ def dashboard(request):
 
                 # Send Email
                 try:
-                    # Format the message with proper spacing and line breaks
-                    message = f"""
-                    Child: {child.name}
-                    Action: Signed Out
-                    Time: {timezone.now().strftime('%Y-%m-%d %H:%M:%S')}
-                    """
+                    # Prepare email context
+                    context = {
+                        'child_name': child.name,
+                        'action_type': 'Signed Out',
+                        'timestamp': timezone.now().strftime('%Y-%m-%d %H:%M:%S')
+                    }
+                    
+                    # Render HTML template
+                    html_message = render_to_string('emails/attendance_notification.html', context)
                     
                     send_mail(
-                        'Childcare Notification',
-                        message,
+                        'Childcare Attendance Notification',
+                        'Please view this email in a HTML-compatible email client.',
                         settings.EMAIL_HOST_USER,
                         [child.parent.email, 'christopheranchetaece@gmail.com'],
-                        fail_silently=False
+                        fail_silently=False,
+                        html_message=html_message
                     )
                     print(f"Email sent successfully to {child.parent.email}")
                 except Exception as e:
