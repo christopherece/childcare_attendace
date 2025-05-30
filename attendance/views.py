@@ -1,13 +1,20 @@
-from django.shortcuts import render, redirect, get_object_or_404
+from django.shortcuts import render, get_object_or_404
 from django.http import JsonResponse
+from django.utils import timezone
+from django.template.loader import render_to_string
+from django.core.mail import send_mail
 from django.contrib import messages
-from django.contrib.auth import authenticate, login, logout
-from django.contrib.auth.decorators import login_required, user_passes_test
-from .models import Child, Parent, Attendance
+from django.conf import settings
+from datetime import timedelta
+
+from .models import Child, Attendance
+from notifications.models import Notification
 from django.db.models import Q
 import json
 from django.utils import timezone
 from django.conf import settings
+from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth.decorators import login_required, user_passes_test
 from django.core.mail import send_mail
 from django.template.loader import render_to_string
 
@@ -19,6 +26,7 @@ def dashboard(request):
     if request.method == 'POST':
         child_id = request.POST.get('child_id')
         action = request.POST.get('action', 'sign_in')
+        notes = request.POST.get('notes', '')
         if child_id:
             child = get_object_or_404(Child, id=child_id)
             
@@ -31,11 +39,20 @@ def dashboard(request):
                     return render(request, 'attendance/dashboard.html')
                 
                 # Create new sign-in record
-                Attendance.objects.create(
+                attendance = Attendance.objects.create(
                     child=child,
                     parent=child.parent,
-                    action_type='sign_in'
+                    action_type='sign_in',
+                    notes=notes
                 )
+                
+                # Check for late sign-in
+                if attendance.late:
+                    Notification.create_late_notification(
+                        child,
+                        'late_sign_in',
+                        f"Late sign-in for {child.name} at {attendance.timestamp.strftime('%H:%M')}")
+                
                 messages.success(request, f"{child.name} has been signed in.")
 
                 # Send Email
@@ -44,7 +61,9 @@ def dashboard(request):
                     context = {
                         'child_name': child.name,
                         'action_type': 'Signed In',
-                        'timestamp': timezone.now().strftime('%Y-%m-%d %H:%M:%S')
+                        'timestamp': attendance.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
+                        'late': attendance.late,
+                        'notes': notes
                     }
                     
                     # Render HTML template
@@ -72,11 +91,20 @@ def dashboard(request):
                     return render(request, 'attendance/dashboard.html')
                 
                 # Create new sign-out record
-                Attendance.objects.create(
+                attendance = Attendance.objects.create(
                     child=child,
                     parent=child.parent,
-                    action_type='sign_out'
+                    action_type='sign_out',
+                    notes=notes
                 )
+                
+                # Check for late sign-out
+                if attendance.late:
+                    Notification.create_late_notification(
+                        child,
+                        'late_sign_out',
+                        f"Late sign-out for {child.name} at {attendance.timestamp.strftime('%H:%M')}")
+                
                 messages.success(request, f"{child.name} has been signed out.")
 
                 # Send Email
@@ -85,7 +113,9 @@ def dashboard(request):
                     context = {
                         'child_name': child.name,
                         'action_type': 'Signed Out',
-                        'timestamp': timezone.now().strftime('%Y-%m-%d %H:%M:%S')
+                        'timestamp': attendance.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
+                        'late': attendance.late,
+                        'notes': notes
                     }
                     
                     # Render HTML template
@@ -101,15 +131,40 @@ def dashboard(request):
                     )
                     print(f"Email sent successfully to {child.parent.email}")
                 except Exception as e:
-                    # Log the error with more details
                     print(f"Email sending failed: {str(e)}")
                     print(f"Failed to send email to: {child.parent.email}")
-                    print(f"Email configuration: {EMAIL_HOST_USER}")
                     messages.error(request, f"Failed to send notification email: {str(e)}")
 
                 return render(request, 'attendance/dashboard.html')
     
-    return render(request, 'attendance/dashboard.html')
+    # Get today's attendance statistics
+    today = timezone.now().date()
+    children = Child.objects.all()
+    
+    # Get signed in children with their attendance data
+    signed_in_children = []
+    for child in children:
+        records = Attendance.get_daily_attendance(child, today)
+        if records.exists() and records.last().action_type == 'sign_in':
+            signed_in_children.append({
+                'child': child,
+                'sign_in_time': records.last().timestamp,
+                'late': records.last().late
+            })
+    
+    # Get recent notifications
+    recent_notifications = Notification.objects.filter(
+        timestamp__gte=timezone.now() - timedelta(days=7)
+    ).order_by('-timestamp')[:5]
+    
+    context = {
+        'total_children': children.count(),
+        'signed_in_children': signed_in_children,
+        'signed_out_children': children.count() - len(signed_in_children),
+        'recent_notifications': recent_notifications
+    }
+    
+    return render(request, 'attendance/dashboard.html', context)
 
 def search_children(request):
     query = request.GET.get('q', '')
@@ -117,42 +172,27 @@ def search_children(request):
         Q(name__icontains=query) | Q(parent__name__icontains=query)
     ).values('id', 'name', 'parent__name', 'profile_picture')
     
-    # Get today's attendance records
     today = timezone.now().date()
-    today_attendances = Attendance.objects.filter(
-        timestamp__date=today
-    ).values('child_id', 'timestamp')
-    
-    # Convert the QuerySet to a list and format the response
     response_data = []
+    
     for child in children:
-        # Get the relative path from the profile_picture field
-        profile_picture_url = None
-        if child['profile_picture']:
-            try:
-                # Extract just the filename from the path
-                filename = child['profile_picture'].split('/')[-1]
-                # Use the correct static URL
-                profile_picture_url = f"/static/images/child_pix/{filename}"
-            except Exception as e:
-                print(f"Error building URL for profile picture: {e}")
-                profile_picture_url = '/static/images/child_pix/user-default.png'
-        else:
-            profile_picture_url = '/static/images/child_pix/user-default.png'
+        # Get today's attendance records
+        records = Attendance.get_daily_attendance(child['id'], today)
         
         # Check attendance status
         attendance_status = None
-        if child['id'] in [a['child_id'] for a in today_attendances]:
-            # Get the latest attendance record for this child
-            latest_attendance = next((a for a in today_attendances if a['child_id'] == child['id']), None)
-            if latest_attendance:
-                # If there's an even number of records, they're signed out
-                child_records = [a for a in today_attendances if a['child_id'] == child['id']]
-                if len(child_records) % 2 == 0:
-                    attendance_status = 'Signed Out'
-                else:
-                    attendance_status = 'Signed In'
-
+        if records.exists():
+            last_record = records.last()
+            if last_record.action_type == 'sign_in':
+                attendance_status = 'Signed In'
+            else:
+                attendance_status = 'Signed Out'
+        else:
+            attendance_status = 'Not Signed In'
+        
+        # Get profile picture URL
+        profile_picture_url = child['profile_picture'] or '/static/images/child_pix/user-default.png'
+        
         response_data.append({
             'id': child['id'],
             'name': child['name'],
@@ -171,7 +211,7 @@ def child_profile(request):
     
     try:
         child = Child.objects.get(id=child_id)
-        profile_picture_url = f"/static/images/child_pix/{child.profile_picture.name.split('/')[-1]}" if child.profile_picture else '/static/images/child_pix/user-default.png'
+        profile_picture_url = child.profile_picture.url if child.profile_picture else '/static/images/child_pix/user-default.png'
         
         # Get today's attendance records for this child
         today = timezone.now().date()
