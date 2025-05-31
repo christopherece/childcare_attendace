@@ -93,24 +93,44 @@ def dashboard(request):
                     return redirect('attendance:dashboard')
                     
             elif action == 'sign_out':
-                # Check if there's an existing sign-in today
-                if not Attendance.check_existing_record(child):
-                    messages.error(request, f"{child.name} is not signed in today.")
-                    return redirect('attendance:dashboard')
-                    
-                # Get the existing sign-in record
-                attendance = Attendance.objects.get(
+                today = timezone.now().date()
+                
+                # Get the latest attendance record for today
+                attendance = Attendance.objects.filter(
                     child=child,
                     sign_in__date=today
-                )
+                ).order_by('-sign_in').first()
                 
-                # Update sign-out time
-                attendance.sign_out = timezone.now()
-                attendance.notes = notes
-                attendance.save()
+                if not attendance:
+                    messages.error(request, f"{child.name} is not signed in today.")
+                    return redirect('attendance:dashboard')
                 
-                messages.success(request, f"{child.name} has been signed out.")
-                return redirect('attendance:dashboard')
+                # Check if the child has already been signed out today
+                if attendance.sign_out:
+                    messages.error(request, f"{child.name} has already been signed out today at {attendance.sign_out.strftime('%I:%M %p')}")
+                    return redirect('attendance:dashboard')
+                
+                try:
+                    with transaction.atomic():
+                        # Update sign-out time
+                        attendance.sign_out = timezone.now()
+                        attendance.notes = notes
+                        attendance.save()
+                        
+                        # Send notification email
+                        send_mail(
+                            subject='Child Sign-out Notification',
+                            message=f"{child.name} has been signed out at {attendance.sign_out.strftime('%I:%M %p')}",
+                            from_email=settings.EMAIL_HOST_USER,
+                            recipient_list=[child.parent.email, 'christopheranchetaece@gmail.com'],
+                            fail_silently=True
+                        )
+                        
+                        messages.success(request, f"{child.name} has been signed out.")
+                        return redirect('attendance:dashboard')
+                except Exception as e:
+                    messages.error(request, f"Error signing out {child.name}: {str(e)}")
+                    return redirect('attendance:dashboard')
                 
         except Child.DoesNotExist:
             messages.error(request, "Child not found.")

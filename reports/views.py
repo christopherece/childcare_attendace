@@ -21,13 +21,13 @@ def admin_portal(request):
         # Get today's attendance records for this child
         todays_attendance = Attendance.objects.filter(
             child=child,
-            timestamp__date=today
-        ).order_by('timestamp')
+            sign_in__date=today
+        ).order_by('sign_in')
         
         is_signed_in = False
         if todays_attendance.exists():
             last_record = todays_attendance.last()
-            is_signed_in = last_record.action_type == 'sign_in'
+            is_signed_in = last_record.sign_out is None
         
         children_data.append({
             'child': child,
@@ -41,12 +41,15 @@ def admin_portal(request):
     # Get signed in children using the same logic as dashboard
     signed_in_children = []
     for child in children:
-        status = Attendance.get_today_status(child)
-        if status == 'signed_in':
-            # Get the latest sign-in record
-            records = Attendance.get_daily_attendance(child, today)
-            latest_sign_in = records.filter(action_type='sign_in').last()
-            if latest_sign_in:
+        # Get today's attendance records
+        records = Attendance.objects.filter(
+            child=child,
+            sign_in__date=today
+        ).order_by('sign_in')
+        
+        if records.exists():
+            last_record = records.last()
+            if not last_record.sign_out:  # If there's no sign_out, they're still signed in
                 signed_in_children.append(child)
     
     total_signed_in = len(signed_in_children)
@@ -54,9 +57,9 @@ def admin_portal(request):
     # Get attendance records for the last 7 days
     week_ago = timezone.now() - timedelta(days=7)
     weekly_records = Attendance.objects.filter(
-        timestamp__gte=week_ago
+        sign_in__gte=week_ago
     ).annotate(
-        hour=ExtractHour('timestamp')
+        hour=ExtractHour('sign_in')
     )
     
     # Calculate average attendance per hour
@@ -87,9 +90,9 @@ def admin_portal(request):
                 writer.writerow([
                     child.name,
                     child.parent.name,
-                    record.timestamp.date().strftime('%Y-%m-%d'),
-                    record.timestamp.time().strftime('%H:%M:%S'),
-                    record.action_type
+                    record.sign_in.date().strftime('%Y-%m-%d'),
+                    record.sign_in.time().strftime('%H:%M:%S'),
+                    'Signed Out' if record.sign_out else 'Signed In'
                 ])
         
         return response
@@ -106,34 +109,34 @@ def admin_portal(request):
             child = child_data['child']
             for record in child_data['attendance_records']:
                 writer.writerow([
-                    f"{child.first_name} {child.last_name}",
-                    f"{child.parent.first_name} {child.parent.last_name}",
-                    record.timestamp.date().strftime('%Y-%m-%d'),
-                    record.timestamp.time().strftime('%H:%M:%S'),
-                    record.action_type
+                    child.name,
+                    child.parent.name,
+                    record.sign_in.date().strftime('%Y-%m-%d'),
+                    record.sign_in.time().strftime('%H:%M:%S'),
+                    'Signed Out' if record.sign_out else 'Signed In'
                 ])
         
         return response
     
     # Calculate current attendance stats
     currently_signed_in = children.filter(
-        attendance__timestamp__date=today,
-        attendance__timestamp__lte=current_time
+        attendance__sign_in__date=today,
+        attendance__sign_in__lte=current_time
     ).distinct().count()
     
     # Calculate average daily attendance rate
     thirty_days_ago = today - timedelta(days=30)
     total_attendance_records = Attendance.objects.filter(
-        timestamp__date__gte=thirty_days_ago
+        sign_in__date__gte=thirty_days_ago
     ).count()
     total_possible_attendances = children.count() * 30
     average_attendance_rate = (total_attendance_records / total_possible_attendances) * 100 if total_possible_attendances > 0 else 0
     
     # Calculate average sign-in and sign-out times
-    today_attendances = Attendance.objects.filter(timestamp__date=today)
+    today_attendances = Attendance.objects.filter(sign_in__date=today)
     if today_attendances.exists():
         # Get all sign-in times as strings
-        sign_in_times = [a.timestamp.time() for a in today_attendances]
+        sign_in_times = [a.sign_in.time() for a in today_attendances]
         
         # Convert times to minutes since midnight
         minutes_since_midnight = [t.hour * 60 + t.minute for t in sign_in_times]
@@ -147,7 +150,7 @@ def admin_portal(request):
         # For sign-out time, only consider times after 12 hours ago
         # Use timezone-aware datetime for comparison
         twelve_hours_ago = current_time - timedelta(hours=12)
-        sign_out_times = [a.timestamp.time() for a in today_attendances if a.timestamp >= twelve_hours_ago]
+        sign_out_times = [a.sign_out.time() for a in today_attendances if a.sign_out and a.sign_out >= twelve_hours_ago]
         if sign_out_times:
             minutes_since_midnight = [t.hour * 60 + t.minute for t in sign_out_times]
             avg_minutes = sum(minutes_since_midnight) / len(minutes_since_midnight)
@@ -160,7 +163,7 @@ def admin_portal(request):
     
     # Calculate peak attendance hour
     peak_hour = today_attendances.annotate(
-        hour=ExtractHour('timestamp')
+        hour=ExtractHour('sign_in')
     ).values('hour').annotate(
         count=Count('id')
     ).order_by('-count').first()

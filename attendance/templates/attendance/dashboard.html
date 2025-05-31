@@ -6,21 +6,21 @@
 <style>
     /* Global styles */
     .container-fluid {
-        padding: 2rem 1rem;
+        padding: 2rem;
     }
 
     /* Card styles */
     .card-lg {
         border: none;
         border-radius: 15px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
-        transition: all 0.3s ease;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.08);
         margin-bottom: 2rem;
+        transition: all 0.3s ease;
     }
 
     .card-lg:hover {
         transform: translateY(-5px);
-        box-shadow: 0 8px 12px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
     }
 
     .card-header {
@@ -34,6 +34,7 @@
         font-weight: 600;
         color: #212529;
         margin-bottom: 0;
+        font-size: 1.5rem;
     }
 
     .card-body {
@@ -58,13 +59,13 @@
     .btn-primary {
         background-color: #4ecdc4;
         border-color: #4ecdc4;
-        box-shadow: 0 4px 15px rgba(78,205,196,0.3);
+        box-shadow: 0 4px 10px rgba(78,205,196,0.3);
     }
 
     .btn-primary:hover {
         background-color: #45b7d1;
         border-color: #45b7d1;
-        box-shadow: 0 6px 20px rgba(78,205,196,0.4);
+        box-shadow: 0 6px 15px rgba(78,205,196,0.4);
     }
 
     .btn-outline-danger {
@@ -86,18 +87,18 @@
     /* Search container */
     .search-container {
         background: white;
-        border-radius: 12px;
-        padding: 1.5rem;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        border-radius: 8px;
+        padding: 1rem;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
     }
 
     .search-container input {
-        padding: 0.75rem 1rem;
-        border: 2px solid #e2e8f0;
-        border-radius: 8px;
-        font-size: 1rem;
+        padding: 0.5rem 1rem;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        font-size: 0.95rem;
         width: 100%;
-        transition: all 0.3s ease;
+        transition: all 0.2s ease;
     }
 
     .search-container input:focus {
@@ -116,8 +117,8 @@
 
     .list-group-item {
         border: none;
-        padding: 1rem;
-        transition: all 0.3s ease;
+        padding: 0.75rem;
+        transition: all 0.2s ease;
         cursor: pointer;
     }
 
@@ -136,7 +137,8 @@
     .form-label {
         font-weight: 500;
         color: #475569;
-        margin-bottom: 0.5rem;
+        margin-bottom: 0.75rem;
+        font-size: 1rem;
     }
 
     .form-control {
@@ -178,7 +180,8 @@
         border-left: none;
         border-right: none;
         border-top: none;
-        border-bottom: 2px solid #e9ecef;
+        border-bottom: 1px solid #e9ecef;
+        padding: 0.75rem;
     }
 
     .list-group-flush .list-group-item:last-child {
@@ -206,7 +209,7 @@
 {% block content %}
 <div class="container-fluid">
     <div class="row mb-4">
-        <div class="col-md-6">
+        <div class="col-md-6" id="left_card">
             <div class="card card-lg">
                 <div class="card-header">
                     <h3 class="card-title mb-0">Childcare Attendance</h3>
@@ -218,8 +221,37 @@
                     </div>
                 </div>
             </div>
+            <div class="card card-lg mt-3">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Today's Schedule</h5>
+                </div>
+                <div class="card-body">
+                    <div class="list-group list-group-flush">
+                        <div class="list-group-item">
+                            <h6 class="mb-1">Operating Hours</h6>
+                            <small class="text-muted">7:30 AM - 6:00 PM</small>
+                        </div>
+                        <div class="list-group-item">
+                            <h6 class="mb-1">Breakfast</h6>
+                            <small class="text-muted">8:00 AM - 9:00 AM</small>
+                        </div>
+                        <div class="list-group-item">
+                            <h6 class="mb-1">Lunch</h6>
+                            <small class="text-muted">11:30 AM - 12:30 PM</small>
+                        </div>
+                        <div class="list-group-item">
+                            <h6 class="mb-1">Nap Time</h6>
+                            <small class="text-muted">1:00 PM - 3:00 PM</small>
+                        </div>
+                        <div class="list-group-item">
+                            <h6 class="mb-1">Snack Time</h6>
+                            <small class="text-muted">3:30 PM - 4:00 PM</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
-        <div class="col-md-6">
+        <div class="col-md-6" id="right_card">
             <div class="card card-lg">
                 <div class="card-header">
                     <h3 class="card-title mb-0">Attendance Form</h3>
@@ -263,53 +295,6 @@
         </div>
     </div>
 
-    <div class="row">
-        <div class="col-12">
-            <div class="card card-lg today-schedule-card">
-                <div class="card-header">
-                    <h5 class="card-title mb-0">Today's Schedule</h5>
-                </div>
-                <div class="card-body">
-                    <div class="list-group list-group-flush">
-                        <div class="list-group-item">
-                            <h6 class="mb-1">Operating Hours</h6>
-                            <small class="text-muted">7:30 AM - 6:00 PM</small>
-                        </div>
-                        <div class="list-group-item">
-                            <h6 class="mb-1">Breakfast</h6>
-                            <small class="text-muted">8:00 AM - 9:00 AM</small>
-                        </div>
-                        <div class="list-group-item">
-                            <h6 class="mb-1">Lunch</h6>
-                            <small class="text-muted">11:30 AM - 12:30 PM</small>
-                        </div>
-                        <div class="list-group-item">
-                            <h6 class="mb-1">Nap Time</h6>
-                            <small class="text-muted">1:00 PM - 3:00 PM</small>
-                        </div>
-                        <div class="list-group-item">
-                            <h6 class="mb-1">Snack Time</h6>
-                            <small class="text-muted">3:30 PM - 4:00 PM</small>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-                <!-- Currently Signed In Children -->
-                <div class="mt-4">
-                    <h5>Currently Signed In Children</h5>
-                    <div class="table-responsive">
-                        <table class="table table-striped">
-                            <thead>
-                                <tr>
-                                    <th>Child Name</th>
-                                    <th>Parent Name</th>
-                                    <th>Sign In Time</th>
-            </div>
-        </div>
-    </div>
 </div>
 {% endblock %}
 
@@ -423,15 +408,18 @@ function selectChild(id, childName, parentName) {
         .then(data => {
             const profilePicture = document.getElementById('profilePicture');
             if (profilePicture) {
-                // Handle both static and media file URLs
-                const baseUrl = window.location.origin;
+                // Construct proper image URL
                 let imageUrl = data.profile_picture;
                 
-                // If it's a static file URL, prepend the base URL
-                if (imageUrl.includes('/static/')) {
-                    imageUrl = baseUrl + imageUrl;
+                // If no image is provided, use default
+                if (!imageUrl || imageUrl === 'None') {
+                    imageUrl = '/static/images/child_pix/user-default.png';
                 }
                 
+                // Ensure we have a proper absolute URL
+                if (!imageUrl.startsWith('http')) {
+                    imageUrl = window.location.origin + imageUrl;
+                }
                 profilePicture.src = imageUrl;
             }
             
@@ -497,7 +485,12 @@ document.addEventListener('DOMContentLoaded', function() {
             alert('Please select a child first');
             return;
         }
-        
+
+        // Reset form state on each submission
+        form.removeAttribute('data-submitted');
+        const buttons = form.querySelectorAll('button[type="submit"]');
+        buttons.forEach(button => button.disabled = false);
+
         // Check if child is already signed in for today
         if (submitButton && submitButton.id === 'signInButton') {
             fetch(`{% url 'attendance:check_sign_in' %}?child_id=${selectedChildId.value}`)
@@ -505,17 +498,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 .then(data => {
                     if (data.already_signed_in) {
                         alert(`Child is already signed in today at ${data.sign_in_time}`);
-                        e.preventDefault();
                         return;
                     }
                     
                     // If not signed in, proceed with submission
+                    actionInput.value = 'sign_in';
                     form.submit();
                 })
                 .catch(error => {
                     console.error('Error checking sign-in status:', error);
                     alert('Error checking sign-in status. Please try again.');
-                    e.preventDefault();
                 });
             
             // Prevent default submission while we check
@@ -526,17 +518,10 @@ document.addEventListener('DOMContentLoaded', function() {
         // For sign out, just proceed
         actionInput.value = 'sign_out';
         
-        // Prevent duplicate submissions
-        if (form.hasAttribute('data-submitted')) {
-            e.preventDefault();
-            return;
-        }
-        
         // Mark form as submitted
         form.setAttribute('data-submitted', 'true');
         
         // Disable submit buttons
-        const buttons = form.querySelectorAll('button[type="submit"]');
         buttons.forEach(button => button.disabled = true);
     });
 

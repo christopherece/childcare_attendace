@@ -96,20 +96,22 @@
                                         <td>{{ child_data.child.name }}</td>
                                         <td>{{ child_data.child.parent.name }}</td>
                                         <td>
-                                            {% if child_data.is_signed_in %}
+                                            {% if child_data.attendance_records.first and not child_data.attendance_records.first.sign_out %}
                                                 <span class="badge bg-success">Signed In</span>
+                                            {% elif child_data.attendance_records.first and child_data.attendance_records.first.sign_out %}
+                                                <span class="badge bg-danger">Signed Out</span>
                                             {% else %}
                                                 <span class="badge bg-warning">Not Signed In</span>
                                             {% endif %}
                                         </td>
                                         <td>
                                             {% if child_data.attendance_records.first %}
-                                                {{ child_data.attendance_records.first.timestamp|date:"H:i" }}
+                                                {{ child_data.attendance_records.first.sign_in|date:"H:i" }}
                                             {% endif %}
                                         </td>
                                         <td>
-                                            {% if child_data.attendance_records.last and child_data.attendance_records.last.action_type == 'sign_out' %}
-                                                {{ child_data.attendance_records.last.timestamp|date:"H:i" }}
+                                            {% if child_data.attendance_records.last and child_data.attendance_records.last.sign_out %}
+                                                {{ child_data.attendance_records.last.sign_out|date:"H:i" }}
                                             {% endif %}
                                         </td>
                                     </tr>
