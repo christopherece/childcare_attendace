@@ -1,0 +1,76 @@
+{% load static %}
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Late Sign-in Notification</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            background-color: #ff69b4;
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .content {
+            background-color: #fff0f5;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .footer {
+            text-align: center;
+            color: #666;
+            padding: 20px;
+            border-top: 1px solid #eee;
+        }
+        .logo {
+            max-width: 100px;
+            margin-bottom: 10px;
+        }
+        .timestamp {
+            font-size: 14px;
+            color: #666;
+        }
+        .center-name {
+            font-weight: bold;
+            color: #ff69b4;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <img src="{% static 'images/logo.png' %}" alt="Childcare Logo" class="logo">
+        <h1>Late Sign-in Notification</h1>
+    </div>
+
+    <div class="content">
+        <p>Dear {{ parent_name }},</p>
+        
+        <p>We wanted to let you know that {{ child_name }} signed in at {{ sign_in_time }}.</p>
+        
+        <p>Our regular opening time is {{ opening_time }}. Please ensure your child arrives at {{ center_name }} on time to avoid any late sign-in notifications.</p>
+        
+        <p>If you have any questions or concerns, please don't hesitate to contact us.</p>
+        
+        <div class="timestamp">
+            <p>Signed-in at: {{ sign_in_time }}</p>
+            <p>Center: <span class="center-name">{{ center_name }}</span></p>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>Thank you for choosing {{ center_name }}</p>
+        <p>Childcare Center</p>
+    </div>
+</body>
+</html>

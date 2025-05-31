@@ -75,15 +75,26 @@ def dashboard(request):
                             notes=notes
                         )
                         
-                        # Send notification email if after opening time
-                        if timezone.now().time() > child.center.opening_time:
-                            send_mail(
-                                subject='Late Sign-in Notification',
-                                message=f"Late sign-in for {child.name} at {attendance.sign_in.strftime('%I:%M %p')}",
-                                from_email=settings.EMAIL_HOST_USER,
-                                recipient_list=[child.parent.email, 'christopheranchetaece@gmail.com'],
-                                fail_silently=True
-                            )
+                        # Send sign-in notification
+                        # Prepare email context
+                        context = {
+                            'child_name': child.name,
+                            'parent_name': child.parent.name,
+                            'sign_in_time': attendance.sign_in.strftime('%I:%M %p'),
+                            'center_name': child.center.name
+                        }
+                        
+                        # Render the email template
+                        html_message = render_to_string('emails/signin_notification.html', context)
+                        
+                        send_mail(
+                            subject=f'Sign-in Notification - {child.name}',
+                            message='Please view the attached email for details.',
+                            from_email=settings.EMAIL_HOST_USER,
+                            recipient_list=[child.parent.email, 'christopheranchetaece@gmail.com'],
+                            html_message=html_message,
+                            fail_silently=True
+                        )
                         
                         messages.success(request, f"{child.name} has been signed in.")
                         return redirect('attendance:dashboard')
@@ -99,7 +110,10 @@ def dashboard(request):
                 attendance = Attendance.objects.filter(
                     child=child,
                     sign_in__date=today
-                ).order_by('-sign_in').first()
+                ).latest('sign_in')
+                
+                # Get center name from the selected child
+                center_name = child.center.name if child.center else 'Unknown Center'
                 
                 if not attendance:
                     messages.error(request, f"{child.name} is not signed in today.")
@@ -160,11 +174,18 @@ def dashboard(request):
         timestamp__gte=timezone.now() - timedelta(days=7)
     ).order_by('-timestamp')[:5]
     
+    # Get center name from the selected child
+    center_name = ''
+    if request.method == 'POST' and 'child_id' in request.POST:
+        selected_child = get_object_or_404(Child, id=request.POST['child_id'])
+        center_name = selected_child.center.name if selected_child.center else 'Unknown Center'
+    
     context = {
         'total_children': children.count(),
         'total_signed_in': len(signed_in_children),
         'total_signed_out': children.count() - len(signed_in_children),
-        'recent_notifications': recent_notifications
+        'recent_notifications': recent_notifications,
+        'center_name': center_name
     }
     
     return render(request, 'attendance/dashboard.html', context)
@@ -173,15 +194,15 @@ def search_children(request):
     query = request.GET.get('q', '')
     children = Child.objects.filter(
         Q(name__icontains=query) | Q(parent__name__icontains=query)
-    ).values('id', 'name', 'parent__name', 'profile_picture')
+    ).prefetch_related('center')
     
     today = timezone.now().date()
-    response_data = []
+    results = []
     
     for child in children:
         # Get today's attendance record
         record = Attendance.objects.filter(
-            child_id=child['id'],
+            child=child,
             sign_in__date=today
         ).first()
         
@@ -196,17 +217,18 @@ def search_children(request):
             attendance_status = 'Not Signed In'
         
         # Get profile picture URL
-        profile_picture_url = child['profile_picture'] or '/static/images/child_pix/user-default.png'
+        profile_picture_url = child.profile_picture.url if child.profile_picture else '/static/images/child_pix/user-default.png'
         
-        response_data.append({
-            'id': child['id'],
-            'name': child['name'],
-            'parent__name': child['parent__name'],
+        results.append({
+            'id': child.id,
+            'name': child.name,
+            'parent__name': child.parent.name if child.parent else 'No parent assigned',
+            'center_name': child.center.name if child.center else 'Unknown Center',
             'profile_picture': profile_picture_url,
             'attendance_status': attendance_status
         })
     
-    return JsonResponse(response_data, safe=False)
+    return JsonResponse(results, safe=False)
 
 
 def child_profile(request):
@@ -273,24 +295,6 @@ def attendance_records(request):
         if attendance.child_id not in attendance_status:
             attendance_status[attendance.child_id] = []
         # We no longer track action_type, so just store the attendance record
-        if attendance.child_id not in attendance_status:
-            attendance_status[attendance.child_id] = []
-        attendance_status[attendance.child_id].append(attendance)
-    
-    # Prepare data for template
-    children_data = []
-    for child in children:
-        child_status = {
-            'id': child.id,
-            'name': child.name,
-            'parent': child.parent.name if child.parent else 'No parent assigned',
-            'last_action': None,
-            'status': None,
-            'center': child.center.name if child.center else 'No center assigned'
-        }
-        
-        # Get today's attendance record for this child
-        record = Attendance.objects.filter(child=child, sign_in__date=today).first()
         if record:
             if record.sign_out:
                 child_status['status'] = 'Signed Out'

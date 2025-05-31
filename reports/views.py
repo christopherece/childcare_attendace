@@ -5,7 +5,7 @@ from django.utils import timezone
 from django.db.models.functions import ExtractHour
 from django.http import HttpResponse
 import csv
-from attendance.models import Child, Parent, Attendance
+from attendance.models import Child, Parent, Attendance, Center
 
 
 def admin_portal(request):
@@ -76,45 +76,70 @@ def admin_portal(request):
         'current_time': current_time
     }
     
-    if request.GET.get('export_csv'):
-        # Create CSV response
-        response = HttpResponse(content_type='text/csv')
-        response['Content-Disposition'] = 'attachment; filename="attendance_report_{}.csv"'.format(today.strftime('%Y%m%d'))
-        
-        writer = csv.writer(response)
-        writer.writerow(['Child Name', 'Parent Name', 'Date', 'Time', 'Action'])
-        
-        for child_data in children_data:
-            child = child_data['child']
-            for record in child_data['attendance_records']:
-                writer.writerow([
-                    child.name,
-                    child.parent.name,
-                    record.sign_in.date().strftime('%Y-%m-%d'),
-                    record.sign_in.time().strftime('%H:%M:%S'),
-                    'Signed Out' if record.sign_out else 'Signed In'
-                ])
-        
-        return response
+    # Handle CSV export with different time periods
+    export_type = request.GET.get('export_type', 'daily')  # Default to daily
+    export_csv = request.GET.get('export_csv')
     
-    if request.GET.get('export_csv'):
+    if export_csv:
+        # Get the first center's name (assuming there's only one center)
+        center = Center.objects.first()
+        center_name = center.name if center else 'Unknown Center'
+        
         # Create CSV response
         response = HttpResponse(content_type='text/csv')
-        response['Content-Disposition'] = 'attachment; filename="attendance_report_{}.csv"'.format(today.strftime('%Y%m%d'))
+        
+        # Set filename based on export type
+        filename = f"attendance_report_{export_type}_{today.strftime('%Y%m%d')}.csv"
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
         
         writer = csv.writer(response)
-        writer.writerow(['Child Name', 'Parent Name', 'Date', 'Time', 'Action'])
         
-        for child_data in children_data:
-            child = child_data['child']
-            for record in child_data['attendance_records']:
-                writer.writerow([
-                    child.name,
-                    child.parent.name,
-                    record.sign_in.date().strftime('%Y-%m-%d'),
-                    record.sign_in.time().strftime('%H:%M:%S'),
-                    'Signed Out' if record.sign_out else 'Signed In'
-                ])
+        # Get date range based on export type
+        if export_type == 'daily':
+            start_date = today
+            end_date = today
+        elif export_type == 'weekly':
+            start_date = today - timedelta(days=today.weekday())  # Start of current week (Monday)
+            end_date = start_date + timedelta(days=6)  # End of current week (Sunday)
+        elif export_type == 'monthly':
+            start_date = today.replace(day=1)  # Start of current month
+            # End of current month (last day)
+            next_month = start_date.replace(day=28) + timedelta(days=4)  # This will never fail
+            end_date = next_month - timedelta(days=next_month.day)
+        
+        # Write header section
+        writer.writerow(['', '', '', ''])  # Empty row for spacing
+        writer.writerow(['Childcare Attendance Report'])
+        writer.writerow(['Center:', center_name])
+        writer.writerow(['Report Type:', {'daily': 'Daily', 'weekly': 'Weekly', 'monthly': 'Monthly'}[export_type]])
+        writer.writerow(['Date Range:', f"{start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}"])
+        writer.writerow(['', '', '', ''])  # Empty row for spacing
+        
+        # Get all attendance records within the date range
+        attendance_records = Attendance.objects.filter(
+            sign_in__date__gte=start_date,
+            sign_in__date__lte=end_date
+        ).order_by('child__name', 'sign_in')
+        
+        # Get all attendance records within the date range
+        attendance_records = Attendance.objects.filter(
+            sign_in__date__gte=start_date,
+            sign_in__date__lte=end_date
+        ).order_by('child__name', 'sign_in')
+        
+        # Process records by child
+        current_child = None
+        for record in attendance_records:
+            if record.child != current_child:
+                current_child = record.child
+            
+            # Write attendance record in a single row format
+            writer.writerow([
+                record.child.name,
+                record.child.parent.name,
+                record.sign_in.strftime('%Y-%m-%d %H:%M:%S'),
+                record.sign_out.strftime('%Y-%m-%d %H:%M:%S') if record.sign_out else ''
+            ])
         
         return response
     
