@@ -1,6 +1,11 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.http import JsonResponse
 from django.utils import timezone
+from datetime import datetime
+import pytz
+
+# Set default timezone to New Zealand
+NZ_TIMEZONE = pytz.timezone('Pacific/Auckland')
 from django.template.loader import render_to_string
 from django.contrib import messages
 from django.conf import settings
@@ -80,7 +85,7 @@ def dashboard(request):
                         context = {
                             'child_name': child.name,
                             'parent_name': child.parent.name,
-                            'sign_in_time': attendance.sign_in.strftime('%I:%M %p'),
+                            'sign_in_time': attendance.sign_in.astimezone(NZ_TIMEZONE).strftime('%I:%M %p'),
                             'center_name': child.center.name
                         }
                         
@@ -346,12 +351,12 @@ def attendance_records(request):
             'parent': first_attendance.parent,
             'date': current_date,
             'status': status,
-            'sign_in_time': first_attendance.sign_in,
-            'sign_out_time': last_attendance.sign_out if len(current_records) == 2 else None,
+            'sign_in_time': attendance.sign_in.astimezone(NZ_TIMEZONE),
+            'sign_out_time': last_attendance.sign_out.astimezone(NZ_TIMEZONE) if len(current_records) == 2 else None,
         })
     
     return render(request, 'attendance/records.html', {
-        'children_data': children_data
+        'children_data': attendance_data
     })
 
 @login_required
