@@ -37,7 +37,19 @@ def admin_portal(request):
     
     # Calculate statistics
     total_children = children.count()
-    total_signed_in = sum(1 for child_data in children_data if child_data['is_signed_in'])
+    
+    # Get signed in children using the same logic as dashboard
+    signed_in_children = []
+    for child in children:
+        status = Attendance.get_today_status(child)
+        if status == 'signed_in':
+            # Get the latest sign-in record
+            records = Attendance.get_daily_attendance(child, today)
+            latest_sign_in = records.filter(action_type='sign_in').last()
+            if latest_sign_in:
+                signed_in_children.append(child)
+    
+    total_signed_in = len(signed_in_children)
     
     # Get attendance records for the last 7 days
     week_ago = timezone.now() - timedelta(days=7)
@@ -53,10 +65,12 @@ def admin_portal(request):
     ).order_by('hour')
     
     context = {
-        'children_data': children_data,
+        'children': children_data,
         'total_children': total_children,
         'total_signed_in': total_signed_in,
+        'total_signed_out': total_children - total_signed_in,
         'hourly_stats': hourly_stats,
+        'current_time': current_time
     }
     
     if request.GET.get('export_csv'):

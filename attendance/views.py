@@ -7,6 +7,7 @@ from django.conf import settings
 from datetime import timedelta
 from django.db import transaction, utils
 from django.db.utils import IntegrityError
+from datetime import datetime
 
 from .models import Child, Attendance
 from notifications.models import Notification
@@ -75,16 +76,20 @@ def dashboard(request):
                             notes=notes
                         )
                         
-                        # Check for late sign-in
-                        if attendance.late:
-                            # Send late notification email
-                            send_mail(
-                                subject='Late Sign-in Notification',
-                                message=f"Late sign-in for {child.name} at {attendance.timestamp.strftime('%I:%M %p')}",
-                                from_email=settings.EMAIL_HOST_USER,
-                                recipient_list=[child.parent.email, 'christopheranchetaece@gmail.com'],
-                                fail_silently=True
-                            )
+                        # Check if this is the first sign-in of the day
+                        if not Attendance.check_existing_record(child, 'sign_in'):
+                            # Mark as late if after opening time
+                            if attendance.timestamp.time() > child.center.opening_time:
+                                attendance.late = True
+                                attendance.save()
+                                # Send late notification email
+                                send_mail(
+                                    subject='Late Sign-in Notification',
+                                    message=f"Late sign-in for {child.name} at {attendance.timestamp.strftime('%I:%M %p')}",
+                                    from_email=settings.EMAIL_HOST_USER,
+                                    recipient_list=[child.parent.email, 'christopheranchetaece@gmail.com'],
+                                    fail_silently=True
+                                )
                         
                         messages.success(request, f"{child.name} has been signed in.")
                         return redirect('attendance:dashboard')
@@ -106,14 +111,29 @@ def dashboard(request):
                     messages.error(request, f"{child.name} is not signed in today.")
                     return redirect('attendance:dashboard')
                     
-                # Create sign-out record
+                # Check if there's already a sign-out record today
+                existing_sign_out = Attendance.objects.filter(
+                    child=child,
+                    timestamp__date=today,
+                    action_type='sign_out'
+                ).exists()
+                
+                if existing_sign_out:
+                    messages.error(request, f"{child.name} is already signed out today.")
+                    return redirect('attendance:dashboard')
+                
+                # Create sign-out record with current timestamp
                 attendance = Attendance.objects.create(
                     child=child,
                     parent=child.parent,
                     center=child.center,
                     action_type='sign_out',
-                    notes=notes
+                    notes=notes,
+                    prevent_sign_in_until_tomorrow=True
                 )
+                
+                # The timestamp will be automatically set by the model's save method
+                attendance.save()
                 
                 messages.success(request, f"{child.name} has been signed out.")
                 return redirect('attendance:dashboard')
@@ -129,13 +149,17 @@ def dashboard(request):
     # Get signed in children with their attendance data
     signed_in_children = []
     for child in children:
-        records = Attendance.get_daily_attendance(child, today)
-        if records.exists() and records.last().action_type == 'sign_in':
-            signed_in_children.append({
-                'child': child,
-                'sign_in_time': records.last().timestamp,
-                'late': records.last().late
-            })
+        status = Attendance.get_today_status(child)
+        if status == 'signed_in':
+            # Get the latest sign-in record
+            records = Attendance.get_daily_attendance(child, today)
+            latest_sign_in = records.filter(action_type='sign_in').last()
+            if latest_sign_in:
+                signed_in_children.append({
+                    'child': child,
+                    'sign_in_time': latest_sign_in.timestamp,
+                    'late': latest_sign_in.late
+                })
     
     # Get recent notifications
     recent_notifications = Notification.objects.filter(
@@ -144,8 +168,8 @@ def dashboard(request):
     
     context = {
         'total_children': children.count(),
-        'signed_in_children': signed_in_children,
-        'signed_out_children': children.count() - len(signed_in_children),
+        'total_signed_in': len(signed_in_children),
+        'total_signed_out': children.count() - len(signed_in_children),
         'recent_notifications': recent_notifications
     }
     

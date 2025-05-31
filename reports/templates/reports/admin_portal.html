@@ -7,7 +7,7 @@
     
     <!-- Current Attendance Stats -->
     <div class="row mb-4">
-        <div class="col-md-3">
+        <div class="col-md-4">
             <div class="card bg-primary text-white">
                 <div class="card-body">
                     <h5 class="card-title">Total Children</h5>
@@ -15,15 +15,8 @@
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="card bg-success text-white">
-                <div class="card-body">
-                    <h5 class="card-title">Total Parents</h5>
-                    <h2 class="display-4">{{ total_parents }}</h2>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
+       
+        <div class="col-md-4">
             <div class="card bg-info text-white">
                 <div class="card-body">
                     <h5 class="card-title">Currently Signed In</h5>
@@ -31,7 +24,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
+        <div class="col-md-4">
             <div class="card bg-warning text-white">
                 <div class="card-body">
                     <h5 class="card-title">Avg Attendance Rate</h5>
@@ -129,25 +122,7 @@
             </div>
         </div>
 
-        <div class="row mt-4">
-            <div class="col-md-6">
-                <div class="card">
-                    <div class="card-body">
-                        <h5 class="card-title">Attendance Summary</h5>
-                        <p class="card-text">Total Children: <span class="badge bg-info">{{ total_children }}</span></p>
-                        <p class="card-text">Currently Signed In: <span class="badge bg-success">{{ total_signed_in }}</span></p>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-6">
-                <div class="card">
-                    <div class="card-body">
-                        <h5 class="card-title">Weekly Attendance Statistics</h5>
-                        <canvas id="attendanceChart"></canvas>
-                    </div>
-                </div>
-            </div>
-        </div>
+       
     </div>
 
     <!-- Active Children -->

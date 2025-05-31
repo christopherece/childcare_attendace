@@ -24,7 +24,7 @@ class ChildAdmin(admin.ModelAdmin):
 
 @admin.register(Attendance)
 class AttendanceAdmin(admin.ModelAdmin):
-    list_display = ('child', 'parent', 'center', 'timestamp', 'action_type', 'attendance_status', 'late', 'late_reason', 'created_at')
+    list_display = ('child', 'parent', 'center', 'timestamp', 'action_type', 'late', 'late_reason', 'created_at')
     list_filter = (
         'timestamp', 
         'child__parent', 
@@ -39,9 +39,7 @@ class AttendanceAdmin(admin.ModelAdmin):
     readonly_fields = ('created_at',)
     actions = ['export_as_csv']
 
-    def attendance_status(self, obj):
-        return obj.get_current_status(obj.child)
-    attendance_status.short_description = 'Status'
+
 
     def get_queryset(self, request):
         queryset = super().get_queryset(request)

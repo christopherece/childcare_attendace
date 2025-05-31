@@ -1,6 +1,6 @@
 from django.db import models
 from django.utils import timezone
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 class Center(models.Model):
     name = models.CharField(max_length=100)
@@ -70,7 +70,26 @@ class Attendance(models.Model):
     child = models.ForeignKey(Child, on_delete=models.CASCADE)
     parent = models.ForeignKey(Parent, on_delete=models.CASCADE)
     center = models.ForeignKey(Center, on_delete=models.SET_NULL, null=True, blank=True)
-    timestamp = models.DateTimeField(default=timezone.now)
+    timestamp = models.DateTimeField(default=timezone.now)  # Automatically set to current time when record is created
+    prevent_sign_in_until_tomorrow = models.BooleanField(default=False)  # Flag to prevent sign-in until tomorrow
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Set timestamp to current time if not provided
+        if 'timestamp' not in kwargs:
+            self.timestamp = timezone.now()
+    prevent_sign_in_until_tomorrow = models.BooleanField(default=False)  # Flag to prevent sign-in until tomorrow
+    
+    def save(self, *args, **kwargs):
+        """Ensure timestamp is set to current time before saving"""
+        # Always set timestamp to current time
+        self.timestamp = timezone.now()
+        
+        # For sign-out, set prevent_sign_in_until_tomorrow flag
+        if self.action_type == 'sign_out':
+            self.prevent_sign_in_until_tomorrow = True
+            
+        super().save(*args, **kwargs)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     action_type = models.CharField(max_length=10, choices=[('sign_in', 'Sign In'), ('sign_out', 'Sign Out')], default='sign_in')
@@ -101,82 +120,35 @@ class Attendance(models.Model):
             return 'not_signed_in'
             
         last_record = records.first()
-        return last_record.status
+        return 'signed_in' if last_record.action_type == 'sign_in' else 'signed_out'
 
     def save(self, *args, **kwargs):
-        """Update status based on action type"""
-        if self.action_type == 'sign_in':
-            self.status = 'signed_in'
-        else:
-            self.status = 'signed_out'
-        
-        # Check for existing record before saving
-        if not self.pk and self.action_type == 'sign_in':
-            if self.check_existing_record(self.child, 'sign_in'):
-                raise ValidationError('Child is already signed in today')
-            
+        """Check for existing record before saving"""
+        self.clean()
         super().save(*args, **kwargs)
 
     def clean(self):
         """Run validation checks"""
-        if self.action_type == 'sign_in':
-            if self.check_existing_record(self.child, 'sign_in'):
-                raise ValidationError('Child is already signed in today')
+        if not self.pk:  # Only check on creation
+            if self.action_type == 'sign_in':
+                if self.check_existing_record(self.child, 'sign_in'):
+                    raise ValidationError('Child is already signed in today')
+                if self.prevent_sign_in_until_tomorrow:
+                    raise ValidationError('Cannot sign in until tomorrow')
+            else:  # sign_out
+                if not self.check_existing_record(self.child, 'sign_in'):
+                    raise ValidationError('Child is not signed in today')
+                if self.check_existing_record(self.child, 'sign_out'):
+                    raise ValidationError('Child is already signed out today')
+        
+        # Ensure timestamp is set to current time
+        if not self.timestamp:
+            self.timestamp = timezone.now()
+        
         super().clean()
     
     class Meta:
         ordering = ['-timestamp']
-
-    @classmethod
-    def check_existing_record(cls, child, action_type):
-        """Check if there's an existing record for this child and action type today"""
-        today = timezone.now().date()
-        return cls.objects.filter(
-            child=child,
-            timestamp__date=today,
-            action_type=action_type
-        ).exists()
-
-    @classmethod
-    def get_today_status(cls, child):
-        """Get the attendance status for today"""
-        today = timezone.now().date()
-        records = cls.objects.filter(
-            child=child,
-            timestamp__date=today
-        ).order_by('-timestamp')
-        
-        if not records.exists():
-            return 'not_signed_in'
-            
-        last_record = records.first()
-        if last_record.action_type == 'sign_in':
-            return 'signed_in'
-        else:
-            return 'signed_out'
-
-    def save(self, *args, **kwargs):
-        """Update status based on action type"""
-        # Check for existing sign-in record
-        if self.action_type == 'sign_in':
-            if self.check_existing_record(self.child, 'sign_in'):
-                raise ValidationError('Child is already signed in today')
-        
-        super().save(*args, **kwargs)
-
-    def clean(self):
-        """Run validation checks"""
-        if self.action_type == 'sign_in':
-            if self.check_existing_record(self.child, 'sign_in'):
-                raise ValidationError('Child is already signed in today')
-        super().clean()
-
-
-
-    def save(self, *args, **kwargs):
-        """Override save to ensure validation is run"""
-        self.clean()
-        super().save(*args, **kwargs)
 
     def __str__(self):
         if self.center:
