@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.db import models
-from .models import Child, Parent, Attendance, Center
+from .models import Child, Parent, Attendance, Center, Teacher
 
 @admin.register(Center)
 class CenterAdmin(admin.ModelAdmin):
@@ -40,6 +40,21 @@ class AttendanceAdmin(admin.ModelAdmin):
         return queryset.annotate(
             duration=models.F('sign_out') - models.F('sign_in')
         )
+
+@admin.register(Teacher)
+class TeacherAdmin(admin.ModelAdmin):
+    list_display = ('user', 'center', 'position', 'created_at')
+    list_filter = ('center', 'position')
+    search_fields = ('user__username', 'user__first_name', 'user__last_name', 'center__name', 'position')
+    ordering = ('user__last_name', 'user__first_name')
+    
+    def get_queryset(self, request):
+        queryset = super().get_queryset(request)
+        return queryset.select_related('user', 'center')
+    
+    def user_full_name(self, obj):
+        return f"{obj.user.first_name} {obj.user.last_name}"
+    user_full_name.short_description = 'Full Name'
 
     def export_as_csv(self, request, queryset):
         """Export selected attendance records as CSV"""

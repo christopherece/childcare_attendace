@@ -1,6 +1,7 @@
 from django.db import models
 from django.utils import timezone
 from datetime import datetime, timedelta
+from django.contrib.auth.models import User
 
 class Center(models.Model):
     name = models.CharField(max_length=100)
@@ -14,6 +15,20 @@ class Center(models.Model):
     
     def __str__(self):
         return self.name
+
+class Teacher(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='teacher_profile')
+    center = models.ForeignKey(Center, on_delete=models.SET_NULL, null=True, blank=True)
+    position = models.CharField(max_length=100, default='Teacher')
+    profile_picture = models.ImageField(upload_to='static/images/teachers/', blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def __str__(self):
+        return f'{self.user.get_full_name()} - {self.position}'
+    
+    class Meta:
+        ordering = ['-created_at']
 
 class Parent(models.Model):
     name = models.CharField(max_length=100)

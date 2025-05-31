@@ -1,11 +1,11 @@
-from django.shortcuts import render
+from django.shortcuts import render, get_object_or_404
 from django.db.models import Count, Avg, Sum
 from datetime import datetime, timedelta
 from django.utils import timezone
 from django.db.models.functions import ExtractHour
 from django.http import HttpResponse
 import csv
-from attendance.models import Child, Parent, Attendance, Center
+from attendance.models import Child, Parent, Attendance, Center, Teacher
 
 
 def admin_portal(request):
@@ -13,8 +13,12 @@ def admin_portal(request):
     today = timezone.now().date()
     current_time = timezone.now()
     
-    # Get all children with their attendance status
-    children = Child.objects.all()
+    # Get the teacher's center
+    teacher = get_object_or_404(Teacher, user=request.user)
+    center = teacher.center
+    
+    # Get children from this center with their attendance status
+    children = Child.objects.filter(center=center).select_related('center')
     children_data = []
     
     for child in children:
@@ -32,10 +36,11 @@ def admin_portal(request):
         children_data.append({
             'child': child,
             'is_signed_in': is_signed_in,
-            'attendance_records': todays_attendance
+            'attendance_records': todays_attendance,
+            'center_name': center.name if center else 'Unknown Center'
         })
     
-    # Calculate statistics
+    # Calculate statistics for this center
     total_children = children.count()
     
     # Get signed in children using the same logic as dashboard
@@ -53,6 +58,8 @@ def admin_portal(request):
                 signed_in_children.append(child)
     
     total_signed_in = len(signed_in_children)
+    
+
     
     # Get attendance records for the last 7 days
     week_ago = timezone.now() - timedelta(days=7)
@@ -192,6 +199,24 @@ def admin_portal(request):
     ).values('hour').annotate(
         count=Count('id')
     ).order_by('-count').first()
+
+    # Get active children (those with attendance records in the last 30 days)
+    thirty_days_ago = today - timedelta(days=30)
+    active_children = Child.objects.filter(
+        center=center,
+        attendance__sign_in__date__gte=thirty_days_ago
+    ).annotate(
+        attendance_count=Count('attendance')
+    ).order_by('-attendance_count')[:10]  # Show top 10 most active children
+
+    context.update({
+        'active_children': active_children,
+        'currently_signed_in': currently_signed_in,
+        'average_attendance_rate': average_attendance_rate,
+        'avg_sign_in_time': avg_sign_in_time,
+        'avg_sign_out_time': avg_sign_out_time,
+        'peak_hour': peak_hour
+    })
     
     # Get most active children (top 5)
     active_children = Child.objects.annotate(

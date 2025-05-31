@@ -13,7 +13,7 @@
 <body>
     <nav class="navbar navbar-expand-lg navbar-light bg-pink">
         <div class="container">
-            <a class="navbar-brand" href="{% url 'attendance:dashboard' %}"><i class="fas fa-children"></i> Best ChildCare</a>
+            <a class="navbar-brand" href="{% url 'attendance:dashboard' %}"><i class="fas fa-children"></i> Fun Time Childcare</a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
@@ -23,6 +23,9 @@
                         <a class="nav-link" href="{% url 'attendance:dashboard' %}">Dashboard</a>
                     </li>
                     {% if user.is_authenticated %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'attendance:profile' %}">My Profile</a>
+                        </li>
                         <li class="nav-item">
                             <a class="nav-link" href="{% url 'attendance:attendance_records' %}">Records</a>
                         </li>

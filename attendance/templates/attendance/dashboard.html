@@ -734,9 +734,9 @@ document.addEventListener('DOMContentLoaded', function() {
                                         <h6 class="mb-1">${escapeHtml(child.name)}</h6>
                                         <small class="text-muted">${escapeHtml(child.parent__name)}</small>
                                         <small class="text-muted mt-1">
-                                            <span class="attendance-status ${child.attendance_status ? 'd-block' : 'd-none'}">
-                                                <i class="fas fa-circle me-1 ${child.attendance_status === 'Signed In' ? 'text-success' : 'text-danger'}"></i>
-                                                ${child.attendance_status}
+                                            <span class="attendance-status">
+                                                <i class="fas fa-circle me-1 ${child.attendance_status === 'Signed In' ? 'text-success' : child.attendance_status === 'Signed Out' ? 'text-danger' : 'text-muted'}"></i>
+                                                ${child.attendance_status || 'Not Signed In'}
                                             </span>
                                         </small>
                                     </div>

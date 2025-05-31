@@ -49,10 +49,10 @@ INSTALLED_APPS = [
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
-    'notifications',
     'django.contrib.staticfiles',
     'attendance',
     'reports',
+    'notifications',
 ]
 
 MIDDLEWARE = [
