@@ -1,11 +1,12 @@
-from django.shortcuts import render, get_object_or_404
+from django.shortcuts import render, get_object_or_404, redirect
 from django.http import JsonResponse
 from django.utils import timezone
 from django.template.loader import render_to_string
-from django.core.mail import send_mail
 from django.contrib import messages
 from django.conf import settings
 from datetime import timedelta
+from django.db import transaction, utils
+from django.db.utils import IntegrityError
 
 from .models import Child, Attendance
 from notifications.models import Notification
@@ -18,126 +19,110 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.core.mail import send_mail
 from django.template.loader import render_to_string
 
-def dashboard(request):
-    # Clear any existing messages before processing the request
-    storage = messages.get_messages(request)
-    storage.used = True
+def check_sign_in(request):
+    child_id = request.GET.get('child_id')
+    if not child_id:
+        return JsonResponse({'error': 'Child ID is required'}, status=400)
     
+    try:
+        child = Child.objects.get(id=child_id)
+        today = timezone.now().date()
+        existing_sign_in = Attendance.objects.filter(
+            child=child,
+            timestamp__date=today,
+            action_type='sign_in'
+        ).first()
+        
+        if existing_sign_in:
+            return JsonResponse({
+                'already_signed_in': True,
+                'sign_in_time': existing_sign_in.timestamp.strftime('%I:%M %p')
+            })
+        
+        return JsonResponse({'already_signed_in': False})
+    except Child.DoesNotExist:
+        return JsonResponse({'error': 'Child not found'}, status=404)
+
+def dashboard(request):
+    # Handle form submission
     if request.method == 'POST':
+        # Clear any existing messages before processing the request
+        storage = messages.get_messages(request)
+        storage.used = True
+        
+        # Process the form submission
+        action = request.POST.get('action')
         child_id = request.POST.get('child_id')
-        action = request.POST.get('action', 'sign_in')
         notes = request.POST.get('notes', '')
-        if child_id:
-            child = get_object_or_404(Child, id=child_id)
+        
+        try:
+            child = Child.objects.get(id=child_id)
             
             if action == 'sign_in':
-                # Always allow sign-in at the start of the day
-                today = timezone.now().date()
-                records = Attendance.get_daily_attendance(child, today)
-                if len(records) > 0 and records.last().action_type == 'sign_in':
-                    messages.error(request, f"{child.name} is already signed in today.")
-                    return render(request, 'attendance/dashboard.html')
-                
-                # Create new sign-in record
-                attendance = Attendance.objects.create(
-                    child=child,
-                    parent=child.parent,
-                    action_type='sign_in',
-                    notes=notes
-                )
-                
-                # Check for late sign-in
-                if attendance.late:
-                    Notification.create_late_notification(
-                        child,
-                        'late_sign_in',
-                        f"Late sign-in for {child.name} at {attendance.timestamp.strftime('%H:%M')}")
-                
-                messages.success(request, f"{child.name} has been signed in.")
-
-                # Send Email
                 try:
-                    # Prepare email context
-                    context = {
-                        'child_name': child.name,
-                        'action_type': 'Signed In',
-                        'timestamp': attendance.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
-                        'late': attendance.late,
-                        'notes': notes
-                    }
+                    with transaction.atomic():
+                        # Check if child is already signed in today
+                        if Attendance.check_existing_record(child, 'sign_in'):
+                            messages.error(request, f"{child.name} is already signed in today")
+                            return redirect('attendance:dashboard')
+                        
+                        # Create new sign-in record
+                        attendance = Attendance.objects.create(
+                            child=child,
+                            parent=child.parent,
+                            center=child.center,
+                            action_type='sign_in',
+                            notes=notes
+                        )
+                        
+                        # Check for late sign-in
+                        if attendance.late:
+                            # Send late notification email
+                            send_mail(
+                                subject='Late Sign-in Notification',
+                                message=f"Late sign-in for {child.name} at {attendance.timestamp.strftime('%I:%M %p')}",
+                                from_email=settings.EMAIL_HOST_USER,
+                                recipient_list=[child.parent.email, 'christopheranchetaece@gmail.com'],
+                                fail_silently=True
+                            )
+                        
+                        messages.success(request, f"{child.name} has been signed in.")
+                        return redirect('attendance:dashboard')
+                        
+                except IntegrityError:
+                    messages.error(request, f"{child.name} is already signed in today.")
+                    return redirect('attendance:dashboard')
                     
-                    # Render HTML template
-                    html_message = render_to_string('emails/attendance_notification.html', context)
-                    
-                    send_mail(
-                        'Childcare Attendance Notification',
-                        'Please view this email in a HTML-compatible email client.',
-                        settings.EMAIL_HOST_USER,
-                        [child.parent.email, 'christopheranchetaece@gmail.com'],
-                        fail_silently=True,
-                        html_message=html_message
-                    )
-                    print(f"Email sent successfully to {child.parent.email}")
-                except Exception as e:
-                    print(f"Email sending failed: {str(e)}")
-                    print(f"Failed to send email to: {child.parent.email}")
-                    messages.error(request, "Failed to send notification email. Please check the email configuration.")
-
-                return render(request, 'attendance/dashboard.html')
-            
-            if action == 'sign_out':
-                if not Attendance.can_sign_out(child):
-                    messages.error(request, f"{child.name} cannot be signed out today. ")
-                    return render(request, 'attendance/dashboard.html')
+            elif action == 'sign_out':
+                # Check if there's an existing sign-in today
+                today = timezone.now().date()
+                existing_sign_in = Attendance.objects.filter(
+                    child=child,
+                    timestamp__date=today,
+                    action_type='sign_in'
+                ).exists()
                 
-                # Create new sign-out record
+                if not existing_sign_in:
+                    messages.error(request, f"{child.name} is not signed in today.")
+                    return redirect('attendance:dashboard')
+                    
+                # Create sign-out record
                 attendance = Attendance.objects.create(
                     child=child,
                     parent=child.parent,
+                    center=child.center,
                     action_type='sign_out',
                     notes=notes
                 )
                 
-                # Check for late sign-out
-                if attendance.late:
-                    Notification.create_late_notification(
-                        child,
-                        'late_sign_out',
-                        f"Late sign-out for {child.name} at {attendance.timestamp.strftime('%H:%M')}")
-                
                 messages.success(request, f"{child.name} has been signed out.")
-
-                # Send Email
-                try:
-                    # Prepare email context
-                    context = {
-                        'child_name': child.name,
-                        'action_type': 'Signed Out',
-                        'timestamp': attendance.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
-                        'late': attendance.late,
-                        'notes': notes
-                    }
-                    
-                    # Render HTML template
-                    html_message = render_to_string('emails/attendance_notification.html', context)
-                    
-                    send_mail(
-                        'Childcare Attendance Notification',
-                        'Please view this email in a HTML-compatible email client.',
-                        settings.EMAIL_HOST_USER,
-                        [child.parent.email, 'christopheranchetaece@gmail.com'],
-                        fail_silently=False,
-                        html_message=html_message
-                    )
-                    print(f"Email sent successfully to {child.parent.email}")
-                except Exception as e:
-                    print(f"Email sending failed: {str(e)}")
-                    print(f"Failed to send email to: {child.parent.email}")
-                    messages.error(request, f"Failed to send notification email: {str(e)}")
-
-                return render(request, 'attendance/dashboard.html')
+                return redirect('attendance:dashboard')
+                
+        except Child.DoesNotExist:
+            messages.error(request, "Child not found.")
+            return redirect('attendance:dashboard')
     
-    # Get today's attendance statistics
+    # For GET requests or after POST processing
     today = timezone.now().date()
     children = Child.objects.all()
     

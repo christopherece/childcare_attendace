@@ -8,6 +8,7 @@ class Center(models.Model):
     phone = models.CharField(max_length=20)
     email = models.EmailField(unique=True)
     capacity = models.IntegerField()
+    opening_time = models.TimeField(default='08:30:00')  # Default opening time is 8:30 AM
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -76,15 +77,106 @@ class Attendance(models.Model):
     notes = models.TextField(blank=True, null=True)
     late = models.BooleanField(default=False)
     late_reason = models.CharField(max_length=100, blank=True, null=True)
+
+    @classmethod
+    def check_existing_record(cls, child, action_type):
+        """Check if there's an existing record for this child and action type today"""
+        today = timezone.now().date()
+        return cls.objects.filter(
+            child=child,
+            timestamp__date=today,
+            action_type=action_type
+        ).exists()
+
+    @classmethod
+    def get_today_status(cls, child):
+        """Get the attendance status for today"""
+        today = timezone.now().date()
+        records = cls.objects.filter(
+            child=child,
+            timestamp__date=today
+        ).order_by('-timestamp')
+        
+        if not records.exists():
+            return 'not_signed_in'
+            
+        last_record = records.first()
+        return last_record.status
+
+    def save(self, *args, **kwargs):
+        """Update status based on action type"""
+        if self.action_type == 'sign_in':
+            self.status = 'signed_in'
+        else:
+            self.status = 'signed_out'
+        
+        # Check for existing record before saving
+        if not self.pk and self.action_type == 'sign_in':
+            if self.check_existing_record(self.child, 'sign_in'):
+                raise ValidationError('Child is already signed in today')
+            
+        super().save(*args, **kwargs)
+
+    def clean(self):
+        """Run validation checks"""
+        if self.action_type == 'sign_in':
+            if self.check_existing_record(self.child, 'sign_in'):
+                raise ValidationError('Child is already signed in today')
+        super().clean()
     
     class Meta:
         ordering = ['-timestamp']
-        constraints = [
-            models.UniqueConstraint(
-                fields=['child', 'timestamp'],
-                name='unique_child_attendance_per_day'
-            )
-        ]
+
+    @classmethod
+    def check_existing_record(cls, child, action_type):
+        """Check if there's an existing record for this child and action type today"""
+        today = timezone.now().date()
+        return cls.objects.filter(
+            child=child,
+            timestamp__date=today,
+            action_type=action_type
+        ).exists()
+
+    @classmethod
+    def get_today_status(cls, child):
+        """Get the attendance status for today"""
+        today = timezone.now().date()
+        records = cls.objects.filter(
+            child=child,
+            timestamp__date=today
+        ).order_by('-timestamp')
+        
+        if not records.exists():
+            return 'not_signed_in'
+            
+        last_record = records.first()
+        if last_record.action_type == 'sign_in':
+            return 'signed_in'
+        else:
+            return 'signed_out'
+
+    def save(self, *args, **kwargs):
+        """Update status based on action type"""
+        # Check for existing sign-in record
+        if self.action_type == 'sign_in':
+            if self.check_existing_record(self.child, 'sign_in'):
+                raise ValidationError('Child is already signed in today')
+        
+        super().save(*args, **kwargs)
+
+    def clean(self):
+        """Run validation checks"""
+        if self.action_type == 'sign_in':
+            if self.check_existing_record(self.child, 'sign_in'):
+                raise ValidationError('Child is already signed in today')
+        super().clean()
+
+
+
+    def save(self, *args, **kwargs):
+        """Override save to ensure validation is run"""
+        self.clean()
+        super().save(*args, **kwargs)
 
     def __str__(self):
         if self.center:

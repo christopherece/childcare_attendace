@@ -11,4 +11,5 @@ urlpatterns = [
     path('sign-in/', views.sign_in, name='sign_in'),
     path('sign-out/', views.sign_out, name='sign_out'),
     path('admin_portal/', views.admin_portal, name='admin_portal'),
+    path('check-sign-in/', views.check_sign_in, name='check_sign_in'),
 ]

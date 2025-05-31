@@ -495,13 +495,56 @@ document.addEventListener('DOMContentLoaded', function() {
     form.addEventListener('submit', function(e) {
         const actionInput = document.getElementById('attendanceAction');
         const submitButton = e.submitter;
+        const selectedChildId = document.getElementById('selectedChildId');
         
-        // Determine action based on which button was clicked
-        if (submitButton && submitButton.id === 'signOutButton') {
-            actionInput.value = 'sign_out';
-        } else {
-            actionInput.value = 'sign_in';
+        // Prevent submission if no child is selected
+        if (!selectedChildId.value) {
+            e.preventDefault();
+            alert('Please select a child first');
+            return;
         }
+        
+        // Check if child is already signed in for today
+        if (submitButton && submitButton.id === 'signInButton') {
+            fetch(`{% url 'attendance:check_sign_in' %}?child_id=${selectedChildId.value}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.already_signed_in) {
+                        alert(`Child is already signed in today at ${data.sign_in_time}`);
+                        e.preventDefault();
+                        return;
+                    }
+                    
+                    // If not signed in, proceed with submission
+                    actionInput.value = 'sign_in';
+                    form.submit();
+                })
+                .catch(error => {
+                    console.error('Error checking sign-in status:', error);
+                    alert('Error checking sign-in status. Please try again.');
+                    e.preventDefault();
+                });
+            
+            // Prevent default submission while we check
+            e.preventDefault();
+            return;
+        }
+        
+        // For sign out, just proceed
+        actionInput.value = 'sign_out';
+        
+        // Prevent duplicate submissions
+        if (form.hasAttribute('data-submitted')) {
+            e.preventDefault();
+            return;
+        }
+        
+        // Mark form as submitted
+        form.setAttribute('data-submitted', 'true');
+        
+        // Disable submit buttons
+        const buttons = form.querySelectorAll('button[type="submit"]');
+        buttons.forEach(button => button.disabled = true);
     });
 
     // Search functionality
