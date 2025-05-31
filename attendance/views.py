@@ -30,14 +30,13 @@ def check_sign_in(request):
         today = timezone.now().date()
         existing_sign_in = Attendance.objects.filter(
             child=child,
-            timestamp__date=today,
-            action_type='sign_in'
+            sign_in__date=today
         ).first()
         
         if existing_sign_in:
             return JsonResponse({
                 'already_signed_in': True,
-                'sign_in_time': existing_sign_in.timestamp.strftime('%I:%M %p')
+                'sign_in_time': existing_sign_in.sign_in.strftime('%I:%M %p')
             })
         
         return JsonResponse({'already_signed_in': False})
@@ -63,33 +62,28 @@ def dashboard(request):
                 try:
                     with transaction.atomic():
                         # Check if child is already signed in today
-                        if Attendance.check_existing_record(child, 'sign_in'):
+                        if Attendance.check_existing_record(child):
                             messages.error(request, f"{child.name} is already signed in today")
                             return redirect('attendance:dashboard')
                         
-                        # Create new sign-in record
+                        # Create sign-in record
                         attendance = Attendance.objects.create(
                             child=child,
                             parent=child.parent,
                             center=child.center,
-                            action_type='sign_in',
+                            sign_in=timezone.now(),
                             notes=notes
                         )
                         
-                        # Check if this is the first sign-in of the day
-                        if not Attendance.check_existing_record(child, 'sign_in'):
-                            # Mark as late if after opening time
-                            if attendance.timestamp.time() > child.center.opening_time:
-                                attendance.late = True
-                                attendance.save()
-                                # Send late notification email
-                                send_mail(
-                                    subject='Late Sign-in Notification',
-                                    message=f"Late sign-in for {child.name} at {attendance.timestamp.strftime('%I:%M %p')}",
-                                    from_email=settings.EMAIL_HOST_USER,
-                                    recipient_list=[child.parent.email, 'christopheranchetaece@gmail.com'],
-                                    fail_silently=True
-                                )
+                        # Send notification email if after opening time
+                        if timezone.now().time() > child.center.opening_time:
+                            send_mail(
+                                subject='Late Sign-in Notification',
+                                message=f"Late sign-in for {child.name} at {attendance.sign_in.strftime('%I:%M %p')}",
+                                from_email=settings.EMAIL_HOST_USER,
+                                recipient_list=[child.parent.email, 'christopheranchetaece@gmail.com'],
+                                fail_silently=True
+                            )
                         
                         messages.success(request, f"{child.name} has been signed in.")
                         return redirect('attendance:dashboard')
@@ -100,39 +94,19 @@ def dashboard(request):
                     
             elif action == 'sign_out':
                 # Check if there's an existing sign-in today
-                today = timezone.now().date()
-                existing_sign_in = Attendance.objects.filter(
-                    child=child,
-                    timestamp__date=today,
-                    action_type='sign_in'
-                ).exists()
-                
-                if not existing_sign_in:
+                if not Attendance.check_existing_record(child):
                     messages.error(request, f"{child.name} is not signed in today.")
                     return redirect('attendance:dashboard')
                     
-                # Check if there's already a sign-out record today
-                existing_sign_out = Attendance.objects.filter(
+                # Get the existing sign-in record
+                attendance = Attendance.objects.get(
                     child=child,
-                    timestamp__date=today,
-                    action_type='sign_out'
-                ).exists()
-                
-                if existing_sign_out:
-                    messages.error(request, f"{child.name} is already signed out today.")
-                    return redirect('attendance:dashboard')
-                
-                # Create sign-out record with current timestamp
-                attendance = Attendance.objects.create(
-                    child=child,
-                    parent=child.parent,
-                    center=child.center,
-                    action_type='sign_out',
-                    notes=notes,
-                    prevent_sign_in_until_tomorrow=True
+                    sign_in__date=today
                 )
                 
-                # The timestamp will be automatically set by the model's save method
+                # Update sign-out time
+                attendance.sign_out = timezone.now()
+                attendance.notes = notes
                 attendance.save()
                 
                 messages.success(request, f"{child.name} has been signed out.")
@@ -153,11 +127,11 @@ def dashboard(request):
         if status == 'signed_in':
             # Get the latest sign-in record
             records = Attendance.get_daily_attendance(child, today)
-            latest_sign_in = records.filter(action_type='sign_in').last()
+            latest_sign_in = records.first()
             if latest_sign_in:
                 signed_in_children.append({
                     'child': child,
-                    'sign_in_time': latest_sign_in.timestamp,
+                    'sign_in_time': latest_sign_in.sign_in,
                     'late': latest_sign_in.late
                 })
     
@@ -185,17 +159,19 @@ def search_children(request):
     response_data = []
     
     for child in children:
-        # Get today's attendance records
-        records = Attendance.get_daily_attendance(child['id'], today)
+        # Get today's attendance record
+        record = Attendance.objects.filter(
+            child_id=child['id'],
+            sign_in__date=today
+        ).first()
         
         # Check attendance status
         attendance_status = None
-        if records.exists():
-            last_record = records.last()
-            if last_record.action_type == 'sign_in':
-                attendance_status = 'Signed In'
-            else:
+        if record:
+            if record.sign_out:
                 attendance_status = 'Signed Out'
+            else:
+                attendance_status = 'Signed In'
         else:
             attendance_status = 'Not Signed In'
         
@@ -222,26 +198,39 @@ def child_profile(request):
         child = Child.objects.get(id=child_id)
         profile_picture_url = child.profile_picture.url if child.profile_picture else '/static/images/child_pix/user-default.png'
         
-        # Get today's attendance records for this child
+        # Get today's attendance record for this child
         today = timezone.now().date()
-        child_records = Attendance.objects.filter(
+        record = Attendance.objects.filter(
             child=child,
-            created_at__date=today
-        ).order_by('created_at')
+            sign_in__date=today
+        ).first()
+        
+        # Check attendance status
+        is_signed_in = bool(record)
+        is_signed_out = bool(record and record.sign_out)
         
         # Determine attendance status
-        attendance_status = None
-        if child_records.exists():
-            if len(child_records) % 2 == 0:
+        attendance_status = 'Not Signed In'
+        if record:
+            if record.sign_out:
                 attendance_status = 'Signed Out'
             else:
                 attendance_status = 'Signed In'
+        
+        # Handle profile picture URL
+        if child.profile_picture:
+            profile_picture_url = child.profile_picture.url
+        else:
+            # Use absolute URL for static files
+            profile_picture_url = request.build_absolute_uri('/static/images/child_pix/user-default.png')
         
         return JsonResponse({
             'profile_picture': profile_picture_url,
             'name': child.name,
             'parent_name': child.parent.name,
-            'attendance_status': attendance_status
+            'attendance_status': attendance_status,
+            'is_signed_in': is_signed_in,
+            'is_signed_out': is_signed_out
         })
     except Child.DoesNotExist:
         return JsonResponse({'error': 'Child not found'}, status=404)
@@ -254,7 +243,7 @@ def attendance_records(request):
     today = timezone.now().date()
     
     # Get all attendance records for today
-    todays_attendances = Attendance.objects.filter(timestamp__date=today).order_by('child_id', 'timestamp')
+    todays_attendances = Attendance.objects.filter(sign_in__date=today).order_by('child_id', 'sign_in')
     
     # Create a dictionary to store attendance status for each child
     attendance_status = {}
@@ -263,7 +252,10 @@ def attendance_records(request):
     for attendance in todays_attendances:
         if attendance.child_id not in attendance_status:
             attendance_status[attendance.child_id] = []
-        attendance_status[attendance.child_id].append(attendance.action_type)
+        # We no longer track action_type, so just store the attendance record
+        if attendance.child_id not in attendance_status:
+            attendance_status[attendance.child_id] = []
+        attendance_status[attendance.child_id].append(attendance)
     
     # Prepare data for template
     children_data = []
@@ -277,11 +269,13 @@ def attendance_records(request):
             'center': child.center.name if child.center else 'No center assigned'
         }
         
-        # Get today's attendance records for this child
-        if child.id in attendance_status:
-            records = attendance_status[child.id]
-            child_status['last_action'] = records[-1]
-            child_status['status'] = 'Signed Out' if len(records) % 2 == 0 else 'Signed In'
+        # Get today's attendance record for this child
+        record = Attendance.objects.filter(child=child, sign_in__date=today).first()
+        if record:
+            if record.sign_out:
+                child_status['status'] = 'Signed Out'
+            else:
+                child_status['status'] = 'Signed In'
         else:
             child_status['status'] = 'Not Signed In'
         
@@ -294,7 +288,7 @@ def attendance_records(request):
     current_records = []
     
     for attendance in todays_attendances:
-        if (attendance.child_id != current_child) or (attendance.timestamp.date() != current_date):
+        if (attendance.child_id != current_child) or (attendance.sign_in.date() != current_date):
             # Process previous group if we have one
             if current_records:
                 first_attendance = current_records[0]
@@ -306,13 +300,13 @@ def attendance_records(request):
                     'parent': first_attendance.parent,
                     'date': current_date,
                     'status': status,
-                    'sign_in_time': first_attendance.timestamp,
-                    'sign_out_time': last_attendance.timestamp if len(current_records) == 2 else None,
+                    'sign_in_time': first_attendance.sign_in,
+                    'sign_out_time': last_attendance.sign_out if len(current_records) == 2 else None,
                 })
                 
             # Start new group
             current_child = attendance.child_id
-            current_date = attendance.timestamp.date()
+            current_date = attendance.sign_in.date()
             current_records = []
             
         current_records.append(attendance)
@@ -328,8 +322,8 @@ def attendance_records(request):
             'parent': first_attendance.parent,
             'date': current_date,
             'status': status,
-            'sign_in_time': first_attendance.timestamp,
-            'sign_out_time': last_attendance.timestamp if len(current_records) == 2 else None,
+            'sign_in_time': first_attendance.sign_in,
+            'sign_out_time': last_attendance.sign_out if len(current_records) == 2 else None,
         })
     
     return render(request, 'attendance/records.html', {

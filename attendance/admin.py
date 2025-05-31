@@ -24,44 +24,21 @@ class ChildAdmin(admin.ModelAdmin):
 
 @admin.register(Attendance)
 class AttendanceAdmin(admin.ModelAdmin):
-    list_display = ('child', 'parent', 'center', 'timestamp', 'action_type', 'late', 'late_reason', 'created_at')
+    list_display = ('child', 'parent', 'center', 'sign_in', 'sign_out', 'notes')
     list_filter = (
-        'timestamp', 
+        'sign_in', 
         'child__parent', 
-        'center', 
-        'action_type',
-        'late',
-        'late_reason'
+        'center'
     )
     search_fields = ('child__name', 'parent__name', 'center__name', 'notes')
-    ordering = ('-timestamp',)
-    date_hierarchy = 'timestamp'
-    readonly_fields = ('created_at',)
+    ordering = ('-sign_in',)
     actions = ['export_as_csv']
-
-
 
     def get_queryset(self, request):
         queryset = super().get_queryset(request)
         # Add annotations for better filtering
         return queryset.annotate(
-            duration=models.Subquery(
-                Attendance.objects.filter(
-                    child=models.OuterRef('child'),
-                    timestamp__date=models.OuterRef('timestamp__date'),
-                    action_type='sign_out'
-                ).annotate(
-                    sign_in_time=models.Subquery(
-                        Attendance.objects.filter(
-                            child=models.OuterRef('child'),
-                            timestamp__date=models.OuterRef('timestamp__date'),
-                            action_type='sign_in'
-                        ).values('timestamp')[:1]
-                    )
-                ).annotate(
-                    duration=models.F('timestamp') - models.F('sign_in_time')
-                ).values('duration')[:1]
-            )
+            duration=models.F('sign_out') - models.F('sign_in')
         )
 
     def export_as_csv(self, request, queryset):
@@ -77,11 +54,9 @@ class AttendanceAdmin(admin.ModelAdmin):
             'Child Name',
             'Parent Name',
             'Center',
-            'Timestamp',
-            'Action Type',
+            'Sign In Time',
+            'Sign Out Time',
             'Status',
-            'Late',
-            'Late Reason',
             'Notes'
         ])
         
@@ -90,18 +65,13 @@ class AttendanceAdmin(admin.ModelAdmin):
                 record.child.name,
                 record.parent.name,
                 record.center.name if record.center else '',
-                record.timestamp,
-                record.action_type,
-                self.attendance_status(record),
-                record.late,
-                record.late_reason,
+                self.get_today_status(record),
                 record.notes
             ])
         
         return response
     export_as_csv.short_description = "Export selected records as CSV"
-    list_filter = ('timestamp', 'child__parent', 'center')
-    search_fields = ('child__name', 'parent__name', 'center__name')
-    ordering = ('-timestamp',)
-    date_hierarchy = 'timestamp'
-    readonly_fields = ('created_at',)
+
+    def get_today_status(self, obj):
+        return obj.get_today_status()
+    get_today_status.short_description = 'Status'

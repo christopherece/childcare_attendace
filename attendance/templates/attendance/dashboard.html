@@ -418,52 +418,46 @@ function selectChild(id, childName, parentName) {
     if (searchInput) searchInput.value = childName;
     
     // Update the profile picture and get attendance status
-    fetch(`{% url 'attendance:child_profile' %}?id=${id}`)
+    fetch(`${window.location.origin}${"{% url 'attendance:child_profile' %}"}?id=${id}`)
         .then(response => response.json())
         .then(data => {
-            // Update the profile picture
             const profilePicture = document.getElementById('profilePicture');
             if (profilePicture) {
-                profilePicture.src = data.profile_picture;
+                // Handle both static and media file URLs
+                const baseUrl = window.location.origin;
+                let imageUrl = data.profile_picture;
+                
+                // If it's a static file URL, prepend the base URL
+                if (imageUrl.includes('/static/')) {
+                    imageUrl = baseUrl + imageUrl;
+                }
+                
+                profilePicture.src = imageUrl;
             }
             
-            // Update the parent name
-            if (parentNameInput) parentNameInput.value = data.parent_name;
+            // Update attendance status
+            const attendanceStatus = document.getElementById('attendanceStatus');
+            if (attendanceStatus) {
+                attendanceStatus.textContent = data.attendance_status;
+            }
             
-            // Update the status display
-            const statusElement = document.getElementById('attendanceStatus');
-            if (statusElement) {
-                let statusText = '';
-                if (data.attendance_status) {
-                    statusText = `${data.attendance_status}`;
-                } else {
-                    statusText = 'Not signed in today';
-                }
-                statusElement.textContent = statusText;
+            // Update sign-in/sign-out buttons based on status
+            if (signInButton) {
+                signInButton.disabled = data.is_signed_in;
+            }
+            if (signOutButton) {
+                signOutButton.disabled = !data.is_signed_in;
             }
         })
         .catch(error => {
             console.error('Error loading profile picture:', error);
-            if (parentNameInput) parentNameInput.value = 'Error loading parent name';
+            const profilePicture = document.getElementById('profilePicture');
+            if (profilePicture) {
+                // Use absolute URL for default image
+                const baseUrl = window.location.origin;
+                profilePicture.src = `${baseUrl}/static/images/child_pix/user-default.png`;
+            }
         });
-}
-
-function toggleAttendanceType() {
-    const attendanceType = document.getElementById('attendanceType');
-    const attendanceTypeSelect = document.getElementById('attendanceTypeSelect');
-    attendanceType.value = attendanceTypeSelect.value;
-    
-    // Update the submit button text based on attendance type
-    const submitButton = document.querySelector('#attendanceForm button[type="submit"]');
-    submitButton.textContent = attendanceTypeSelect.value === 'IN' ? 'Sign In' : 'Sign Out';
-    
-    // Update the form action URL to include the attendance type
-    const form = document.getElementById('attendanceForm');
-    if (form) {
-        // Remove any existing type parameter
-        form.action = form.action.split('?')[0];
-        form.action += '?type=' + attendanceTypeSelect.value;
-    }
 }
 
 // Helper function to escape HTML
@@ -516,7 +510,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                     
                     // If not signed in, proceed with submission
-                    actionInput.value = 'sign_in';
                     form.submit();
                 })
                 .catch(error => {
