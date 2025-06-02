@@ -296,7 +296,7 @@ def search_children(request):
                     attendance_status = 'Signed In'
             
             # Get profile picture URL
-            profile_picture_url = child.profile_picture.url if child.profile_picture else '/media/child_pix/user-default.png'
+            profile_picture_url = child.profile_picture.url if child.profile_picture else request.build_absolute_uri('/media/child_pix/user-default.png')
             
             results.append({
                 'id': child.id,
@@ -322,7 +322,7 @@ def child_profile(request):
     
     try:
         child = Child.objects.get(id=child_id)
-        profile_picture_url = child.profile_picture.url if child.profile_picture else '/static/images/child_pix/user-default.png'
+        profile_picture_url = child.profile_picture.url if child.profile_picture else request.build_absolute_uri('/static/images/child_pix/user-default.png')
         
         # Get today's attendance record for this child
         today = timezone.now().date()
