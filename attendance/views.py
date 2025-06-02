@@ -86,7 +86,6 @@ def check_sign_in(request):
         return JsonResponse({'error': 'Child not found'}, status=404)
 
 @login_required
-@user_passes_test(lambda u: u.is_staff)
 def dashboard(request):
     try:
         teacher = get_object_or_404(Teacher, user=request.user)
@@ -259,15 +258,15 @@ def dashboard(request):
         return redirect('attendance:profile')
 
 @login_required
-@login_required
 def search_children(request):
     """Search for children in teacher's center based on name or parent name"""
     try:
         if not request.headers.get('x-requested-with') == 'XMLHttpRequest':
             return JsonResponse({'error': 'Invalid request'}, status=400)
 
-        if not request.user.is_staff:
-            return JsonResponse({'error': 'Permission denied'}, status=403)
+        # Allow any authenticated user to search
+        if not request.user.is_authenticated:
+            return JsonResponse({'error': 'Authentication required'}, status=401)
 
         query = request.GET.get('q', '')
         teacher = get_object_or_404(Teacher, user=request.user)
@@ -429,49 +428,6 @@ def attendance_records(request):
         'today': today.strftime('%B %d, %Y')
     }
     return render(request, 'attendance/attendance_records.html', context)
-    
-    for attendance in todays_attendances:
-        if (attendance.child_id != current_child) or (attendance.sign_in.date() != current_date):
-            # Process previous group if we have one
-            if current_records:
-                first_attendance = current_records[0]
-                last_attendance = current_records[-1]
-                status = "Signed Out" if len(current_records) == 2 else "Signed In"
-                
-                attendance_data.append({
-                    'child': first_attendance.child,
-                    'parent': first_attendance.parent,
-                    'date': current_date,
-                    'status': status,
-                    'sign_in_time': first_attendance.sign_in,
-                    'sign_out_time': last_attendance.sign_out if len(current_records) == 2 else None,
-                })
-                
-            # Start new group
-            current_child = attendance.child_id
-            current_date = attendance.sign_in.date()
-            current_records = []
-            
-        current_records.append(attendance)
-    
-    # Process last group if any
-    if current_records:
-        first_attendance = current_records[0]
-        last_attendance = current_records[-1]
-        status = "Signed Out" if len(current_records) == 2 else "Signed In"
-        
-        attendance_data.append({
-            'child': first_attendance.child,
-            'parent': first_attendance.parent,
-            'date': current_date,
-            'status': status,
-            'sign_in_time': attendance.sign_in.astimezone(NZ_TIMEZONE),
-            'sign_out_time': last_attendance.sign_out.astimezone(NZ_TIMEZONE) if len(current_records) == 2 else None,
-        })
-    
-    return render(request, 'attendance/records.html', {
-        'children_data': attendance_data
-    })
 
 @login_required
 @user_passes_test(lambda u: u.is_staff)
@@ -486,7 +442,6 @@ def sign_out(request):
     return redirect('attendance:sign_in')
 
 @login_required
-@user_passes_test(lambda u: u.is_staff)
 def profile(request):
     """Display teacher's profile and center information"""
     teacher = get_object_or_404(Teacher, user=request.user)
