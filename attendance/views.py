@@ -296,7 +296,7 @@ def search_children(request):
                     attendance_status = 'Signed In'
             
             # Get profile picture URL
-            profile_picture_url = child.profile_picture.url if child.profile_picture else '/static/images/child_pix/user-default.png'
+            profile_picture_url = child.profile_picture.url if child.profile_picture else '/media/child_pix/user-default.png'
             
             results.append({
                 'id': child.id,
@@ -348,7 +348,7 @@ def child_profile(request):
             profile_picture_url = child.profile_picture.url
         else:
             # Use absolute URL for static files
-            profile_picture_url = request.build_absolute_uri('/static/images/child_pix/user-default.png')
+            profile_picture_url = request.build_absolute_uri('/media/child_pix/user-default.png')
         
         return JsonResponse({
             'profile_picture': profile_picture_url,

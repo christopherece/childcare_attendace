@@ -32,11 +32,20 @@ CSRF_TRUSTED_ORIGINS = ['https://childcare.topitsolutions.co.nz','http://childca
 # Application definition
 
 # Static files (CSS, JavaScript, Images)
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 # Ensure Django collects static files from all apps' static directories
-STATICFILES_DIRS = []
+STATICFILES_DIRS = [
+    BASE_DIR / 'static',
+    BASE_DIR / 'attendance/static',
+    BASE_DIR / 'reports/static',
+    BASE_DIR / 'notifications/static',
+]
+
+# Media files configuration
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
 
 # Add any additional static directories if needed
 # STATICFILES_DIRS = [
