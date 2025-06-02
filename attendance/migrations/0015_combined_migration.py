@@ -3,10 +3,12 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
+        ('attendance', '0014_alter_attendance_options_and_more'),
         ('auth', '0012_alter_user_first_name_max_length'),
     ]
 
     operations = [
+        # Fix user fields
         migrations.RunSQL(
             sql="""
             -- Remove any custom created_at field if it exists
@@ -29,23 +31,6 @@ class Migration(migrations.Migration):
             UPDATE auth_user 
             SET updated_at = CURRENT_TIMESTAMP 
             WHERE updated_at IS NULL;
-            
-            -- Ensure all users have a username
-            UPDATE auth_user 
-            SET username = email 
-            WHERE username IS NULL;
-            
-            -- Ensure all users have an email
-            UPDATE auth_user 
-            SET email = username || '@example.com' 
-            WHERE email IS NULL;
             """,
-            reverse_sql="""
-            -- Revert changes if needed
-            ALTER TABLE auth_user 
-            ALTER COLUMN date_joined DROP DEFAULT;
-            ALTER TABLE auth_user 
-            ALTER COLUMN updated_at DROP DEFAULT;
-            """
         ),
     ]

@@ -710,8 +710,7 @@ document.addEventListener('DOMContentLoaded', function() {
             fetch(`{% url 'attendance:search_children' %}?q=${encodeURIComponent(searchTerm)}`, {
                 method: 'GET',
                 headers: {
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'X-CSRFToken': csrftoken
+                    'X-Requested-With': 'XMLHttpRequest'
                 }
             })
                 .then(response => {
@@ -721,6 +720,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     return response.json();
                 })
                 .then(data => {
+                    if (data.error) {
+                        throw new Error(data.error);
+                    }
                     if (data.length === 0) {
                         searchResults.innerHTML = '<div class="text-center text-muted">No results found</div>';
                     } else {

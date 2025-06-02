@@ -1,0 +1,129 @@
+{% extends 'attendance/base.html' %}
+{% load static %}
+
+{% block title %}Attendance Records - {{ today }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .attendance-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 20px 0;
+    }
+    
+    .attendance-table th,
+    .attendance-table td {
+        padding: 12px;
+        text-align: left;
+        border-bottom: 1px solid #ddd;
+    }
+    
+    .attendance-table th {
+        background-color: #f8f9fa;
+        font-weight: 600;
+    }
+    
+    .attendance-table tr:hover {
+        background-color: #f5f5f5;
+    }
+    
+    .status-signed-in {
+        color: #28a745;
+    }
+    
+    .status-signed-out {
+        color: #dc3545;
+    }
+    
+    .status-not-signed {
+        color: #6c757d;
+    }
+    
+    .no-records {
+        text-align: center;
+        padding: 20px;
+        color: #6c757d;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="card-lg">
+        <div class="card-header">
+            <h3>Attendance Records - {{ today }}</h3>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="attendance-table">
+                    <thead>
+                        <tr>
+                            <th>Child Name</th>
+                            <th>Sign In Time</th>
+                            <th>Sign Out Time</th>
+                            <th>Status</th>
+                            <th>Notes</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for record_data in attendance_data %}
+                            <tr>
+                                <td>
+                                    <strong>{{ record_data.child.name }}</strong>
+                                    <small class="text-muted">{{ record_data.child.parent.name }} (Parent)</small>
+                                </td>
+                                <td>
+                                    {% if record_data.records %}
+                                        <div class="d-flex flex-column">
+                                            {% for record in record_data.records %}
+                                                <span>{{ record.sign_in }}</span>
+                                            {% endfor %}
+                                        </div>
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if record_data.records %}
+                                        <div class="d-flex flex-column">
+                                            {% for record in record_data.records %}
+                                                <span>{{ record.sign_out }}</span>
+                                            {% endfor %}
+                                        </div>
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if record_data.records %}
+                                        <div class="d-flex flex-column">
+                                            {% for record in record_data.records %}
+                                                <span class="{% if record.status == 'Signed In' %}status-signed-in{% elif record.status == 'Signed Out' %}status-signed-out{% else %}status-not-signed{% endif %}">
+                                                    {{ record.status }}
+                                                </span>
+                                            {% endfor %}
+                                        </div>
+                                    {% else %}
+                                        <span class="status-not-signed">Not Signed In</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if record_data.records %}
+                                        <div class="d-flex flex-column">
+                                            {% for record in record_data.records %}
+                                                <span>{{ record.notes }}</span>
+                                            {% endfor %}
+                                        </div>
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
