@@ -8,7 +8,7 @@ from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 import csv
 from django.contrib import messages
 from django.db import transaction
-from attendance.models import Child, Parent, Attendance, Center, Teacher
+from attendance.models import Child, Parent, Attendance, Center, Teacher, Room
 
 # Add new view for child details
 def child_details(request, child_id):
@@ -86,7 +86,7 @@ def admin_portal(request):
     today = timezone.now().date()
     current_time = timezone.now()
     
-    # Get the teacher's center
+    # Get the teacher's center and rooms
     try:
         teacher = get_object_or_404(Teacher, user=request.user)
         center = teacher.center
@@ -98,11 +98,45 @@ def admin_portal(request):
         messages.error(request, 'You are not a teacher')
         return redirect('attendance:dashboard')
     
+    # Get all rooms assigned to this teacher
+    teacher_rooms = teacher.rooms.all()
+    print(f"\nTeacher rooms: {teacher_rooms.count()}")
+    for room in teacher_rooms:
+        print(f"- {room.name} (Age Range: {room.age_range})")
+    
+    # Get all children in this center
+    all_center_children = Child.objects.filter(center=center).select_related('center', 'parent', 'room')
+    print(f"\nAll center children: {all_center_children.count()}")
+    for child in all_center_children:
+        print(f"- {child.name} (Room: {child.room.name if child.room else 'None'})")
+    
     # Get children from this center with their attendance status, sorted alphabetically
-    children = Child.objects.filter(center=center).select_related('center', 'parent').order_by('name')
+    # Match children by their room's age range instead of exact room name
+    children = Child.objects.filter(
+        center=center,
+        room__age_range__in=[room.age_range for room in teacher_rooms]
+    ).select_related('center', 'parent', 'room').order_by('name')
+    
+    print(f"\nFiltered children: {children.count()}")
+    for child in children:
+        print(f"- {child.name} (Room: {child.room.name if child.room else 'None'})")
+    
+    print(f"\nTotal children before filters: {children.count()}")
+    for child in children:
+        print(f"- {child.name} (Room: {child.room.name if child.room else 'None'})")
     
     # Apply filters if present
     status_filter = request.GET.get('status', '')
+    room_filter = request.GET.get('room', '')
+    
+    # Filter by room if specified
+    if room_filter:
+        children = children.filter(room__name=room_filter)
+        print(f"\nAfter room filter (room='{room_filter}'):")
+        print(f"Total children: {children.count()}")
+        for child in children:
+            print(f"- {child.name} (Room: {child.room.name if child.room else 'None'})")
+    
     if status_filter:
         if status_filter == 'signed_in':
             children = children.filter(attendance__sign_in__date=today, attendance__sign_out__isnull=True)
@@ -110,6 +144,10 @@ def admin_portal(request):
             children = children.filter(attendance__sign_in__date=today, attendance__sign_out__isnull=False)
         elif status_filter == 'not_signed':
             children = children
+        print(f"\nAfter status filter (status='{status_filter}'):")
+        print(f"Total children: {children.count()}")
+        for child in children:
+            print(f"- {child.name} (Room: {child.room.name if child.room else 'None'})")
     
     # Apply search filter if provided
     search_query = request.GET.get('search', '')
@@ -121,7 +159,7 @@ def admin_portal(request):
         print(f"\nAfter search filter (search='{search_query}'):")
         print(f"Total children: {children.count()}")
         for child in children:
-            print(f"- {child.name} (Parent: {child.parent.name})")
+            print(f"- {child.name} (Parent: {child.parent.name}, Room: {child.room.name if child.room else 'None'})")
     
     # First get all attendance statistics before pagination
     all_children_data = []
@@ -129,6 +167,8 @@ def admin_portal(request):
     
     # Get attendance statistics for each child
     for child in children:
+        print(f"\nProcessing child: {child.name} (Room: {child.room.name if child.room else 'None'})")
+        
         # Get today's attendance records for this child
         todays_attendance = Attendance.objects.filter(
             child=child,
@@ -240,24 +280,14 @@ def admin_portal(request):
     
     context = {
         'children': children_data,
-        'total_children': total_children,
-        'total_signed_in': total_signed_in,
-        'total_signed_out': total_children - total_signed_in,
+        'total_children': children.count(),
+        'total_signed_in': sum(1 for child_data in all_children_data if child_data['is_signed_in']),
+        'total_signed_out': children.count() - sum(1 for child_data in all_children_data if child_data['is_signed_in']),
         'hourly_stats': hourly_stats,
         'current_time': current_time,
         'most_active_children': most_active_children,
-        'center': center
-    }
-    
-    context = {
-        'children': children_data,
-        'total_children': total_children,
-        'total_signed_in': total_signed_in,
-        'total_signed_out': total_children - total_signed_in,
-        'hourly_stats': hourly_stats,
-        'current_time': current_time,
-        'most_active_children': most_active_children,
-        'center': center
+        'center': center,
+        'teacher_rooms': teacher_rooms
     }
     
     # Handle CSV export with different time periods

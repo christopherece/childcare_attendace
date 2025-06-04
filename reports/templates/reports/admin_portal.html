@@ -99,13 +99,21 @@
                                     <option value="">All Status</option>
                                     <option value="signed_in" {% if request.GET.status == 'signed_in' %}selected{% endif %}>Signed In</option>
                                     <option value="signed_out" {% if request.GET.status == 'signed_out' %}selected{% endif %}>Signed Out</option>
-                                    <option value="not_signed" {% if request.GET.status == 'not_signed' %}selected{% endif %}>Not Signed In</option>
                                 </select>
                             </div>
                             <div class="col-md-4">
-                                <button type="submit" class="btn btn-primary w-100">
-                                    <i class="fas fa-filter"></i> Apply Filters
-                                </button>
+                                <select class="form-select" name="room">
+                                    <option value="">All Rooms</option>
+                                    {% for room in teacher_rooms %}
+                                    <option value="{{ room.name }}" {% if room.name == selected_room %}selected{% endif %}>
+                                        {{ room.name }} ({{ room.age_range }})
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <button type="submit" class="btn btn-primary">Apply Filters</button>
+                                <a href="?" class="btn btn-secondary">Clear Filters</a>
                             </div>
                         </form>
                     </div>

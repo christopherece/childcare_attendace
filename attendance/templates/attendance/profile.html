@@ -67,6 +67,16 @@
         <h2>{{ teacher.user.get_full_name }}</h2>
         <p class="text-muted">{{ teacher.position }}</p>
         <p class="text-muted">{{ teacher.center.name }}</p>
+        {% if teacher_rooms %}
+        <p class="text-muted mt-2">
+            <strong>Rooms:</strong>
+            <ul class="list-unstyled mb-0">
+                {% for room in teacher_rooms %}
+                <li>{{ room.name }} ({{ room.age_range }})</li>
+                {% endfor %}
+            </ul>
+        </p>
+        {% endif %}
     </div>
 
     <div class="row">
@@ -89,6 +99,37 @@
             </div>
         </div>
     </div>
+
+    {% if teacher_rooms %}
+    <div class="mt-4">
+        <h3>My Rooms</h3>
+        <div class="row">
+            {% for room, children in room_children.items %}
+            <div class="col-md-6 mb-3">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">{{ room.name }} ({{ room.age_range }})</h5>
+                        <p class="card-text">
+                            <strong>Children in this room:</strong>
+                            <ul class="list-unstyled">
+                                {% for child in children %}
+                                <li>{{ child.name }} ({{ child.parent.name }})</li>
+                                {% empty %}
+                                <li>No children assigned to this room</li>
+                                {% endfor %}
+                            </ul>
+                        </p>
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="col-12">
+                <p class="text-muted">You are not assigned to any rooms.</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
 
     <div class="profile-form">
         <h3>Update Profile</h3>

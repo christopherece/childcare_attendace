@@ -365,18 +365,20 @@ def attendance_records(request):
     # Get today's date in NZ timezone
     today = timezone.now().astimezone(NZ_TIMEZONE).date()
     
-    # Get children from the current teacher's center
+    # Get children from the current teacher's center and rooms
     try:
         teacher = get_object_or_404(Teacher, user=request.user)
         center = teacher.center
-        children = Child.objects.filter(center=center).order_by('name')
+        teacher_rooms = teacher.rooms.all()
+        children = Child.objects.filter(center=center, room__in=teacher_rooms).order_by('name')
     except Teacher.DoesNotExist:
         messages.error(request, 'Teacher profile not found')
         return redirect('attendance:profile')
     
-    # Get attendance records for today
+    # Get attendance records for today for children in teacher's rooms
     todays_attendances = Attendance.objects.filter(
         child__center=center,
+        child__room__in=teacher_rooms,
         sign_in__date=today
     ).order_by('child_id', 'sign_in')
     
@@ -444,52 +446,62 @@ def sign_out(request):
 @login_required
 def profile(request):
     """Display teacher's profile and center information"""
-    teacher = get_object_or_404(Teacher, user=request.user)
-    
-    if request.method == 'POST':
-        form = TeacherProfileForm(request.POST, request.FILES, instance=teacher)
-        if form.is_valid():
-            form.save()
-            messages.success(request, 'Profile updated successfully!')
-            return redirect('attendance:profile')
-    else:
-        form = TeacherProfileForm(instance=teacher)
-    
-    # Get today's date
-    today = timezone.now().date()
-    
-    # Get attendance statistics for the teacher's center
-    center = teacher.center
-    if center:
-        # Get total children in the center
-        total_children = Child.objects.filter(center=center).count()
+    try:
+        teacher = get_object_or_404(Teacher, user=request.user)
+        center = teacher.center
         
-        # Get children signed in today
-        signed_in_children = Child.objects.filter(
+        # Get teacher's assigned rooms first
+        teacher_rooms = teacher.rooms.all()
+        
+        if request.method == 'POST':
+            form = TeacherProfileForm(request.POST, request.FILES, instance=teacher)
+            if form.is_valid():
+                form.save()
+                messages.success(request, 'Profile updated successfully!')
+                return redirect('attendance:profile')
+        else:
+            form = TeacherProfileForm(instance=teacher)
+        
+        total_children = Child.objects.filter(
             center=center,
-            attendance__sign_in__date=today
-        ).distinct().count()
+            room__in=teacher_rooms
+        ).count()
         
-        # Get average attendance rate for the last 30 days
-        thirty_days_ago = today - timedelta(days=30)
-        attendance_records = Attendance.objects.filter(
+        # Get number of children signed in today from teacher's rooms
+        today = timezone.now().date()
+        signed_in_children = Attendance.objects.filter(
             child__center=center,
+            child__room__in=teacher_rooms,
+            sign_in__date=today,
+            sign_out__isnull=True
+        ).order_by('child').distinct('child').count()
+        
+        # Calculate average attendance rate for the teacher's rooms
+        thirty_days_ago = today - timedelta(days=30)
+        total_attendance_records = Attendance.objects.filter(
+            child__center=center,
+            child__room__in=teacher_rooms,
             sign_in__date__gte=thirty_days_ago
         ).count()
-        total_possible_signins = Child.objects.filter(center=center).count() * 30
-        average_attendance_rate = (attendance_records / total_possible_signins * 100) if total_possible_signins > 0 else 0
-    else:
-        total_children = 0
-        signed_in_children = 0
-        average_attendance_rate = 0
-    
-    context = {
-        'teacher': teacher,
-        'center': center,
-        'total_children': total_children,
-        'signed_in_children': signed_in_children,
-        'average_attendance_rate': f'{average_attendance_rate:.1f}',
-        'form': form
-    }
-    
-    return render(request, 'attendance/profile.html', context)
+        total_possible_attendances = total_children * 30
+        average_attendance_rate = (total_attendance_records / total_possible_attendances) * 100 if total_possible_attendances > 0 else 0
+        
+        # Get children in each room
+        room_children = {}
+        for room in teacher_rooms:
+            children = Child.objects.filter(center=center, room=room)
+            room_children[room] = children
+        
+        return render(request, 'attendance/profile.html', {
+            'teacher': teacher,
+            'center': center,
+            'total_children': total_children,
+            'signed_in_children': signed_in_children,
+            'average_attendance_rate': f'{average_attendance_rate:.1f}',
+            'teacher_rooms': teacher_rooms,
+            'room_children': room_children,
+            'form': form
+        })
+    except Teacher.DoesNotExist:
+        messages.error(request, 'You are not a teacher')
+        return redirect('attendance:dashboard')
