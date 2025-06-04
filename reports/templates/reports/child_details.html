@@ -21,38 +21,28 @@
                     <form method="POST" enctype="multipart/form-data">
                         {% csrf_token %}
                         
-                        <!-- Profile Section -->
-                        <div class="card mb-4">
-                            <div class="card-header">
-                                <h5 class="mb-0">Profile</h5>
-                            </div>
-                            <div class="card-body">
+                        <!-- Compact Profile Section -->
+                        <div class="row mb-4">
+                            <div class="col-md-3">
                                 <div class="text-center mb-4">
-                                    <img src="{{ profile_picture_url }}" alt="{{ child.name }}" class="rounded-circle" style="width: 150px; height: 150px; object-fit: cover;">
+                                    <img src="{{ profile_picture_url }}" alt="{{ child.name }}" class="rounded-circle" style="width: 120px; height: 120px; object-fit: cover;">
                                     <div class="mt-2">
                                         <input type="file" class="form-control" name="profile_picture" accept="image/*">
                                     </div>
                                 </div>
                             </div>
-                        </div>
-
-                        <!-- Personal Information Section -->
-                        <div class="card mb-4">
-                            <div class="card-header">
-                                <h5 class="mb-0">Personal Information</h5>
-                            </div>
-                            <div class="card-body">
+                            <div class="col-md-9">
                                 <div class="row">
                                     <div class="col-md-6">
-                                        <div class="mb-3">
+                                        <div class="mb-2">
                                             <label class="form-label">Name</label>
                                             <input type="text" class="form-control" name="child_name" value="{{ child.name }}" required>
                                         </div>
-                                        <div class="mb-3">
+                                        <div class="mb-2">
                                             <label class="form-label">Date of Birth</label>
                                             <input type="date" class="form-control" name="date_of_birth" value="{{ child.date_of_birth|date:"Y-m-d" }}" required>
                                         </div>
-                                        <div class="mb-3">
+                                        <div class="mb-2">
                                             <label class="form-label">Gender</label>
                                             <select class="form-select" name="gender" required>
                                                 {% for gender in genders %}
@@ -62,12 +52,12 @@
                                         </div>
                                     </div>
                                     <div class="col-md-6">
-                                        <div class="mb-3">
+                                        <div class="mb-2">
                                             <label class="form-label">Age</label>
                                             <input type="number" class="form-control" id="child_age" value="{{ child.age }}" disabled>
                                             <small class="form-text text-muted">Age will be automatically calculated based on date of birth</small>
                                         </div>
-                                        <div class="mb-3">
+                                        <div class="mb-2">
                                             <label class="form-label">Center</label>
                                             <input type="text" class="form-control" value="{{ child.center.name }}" disabled>
                                         </div>
@@ -76,60 +66,60 @@
                             </div>
                         </div>
 
-                        <!-- Parent Information Section -->
-                        <div class="card mb-4">
+                        <!-- Parent Information -->
+                        <div class="card mb-3">
                             <div class="card-header">
                                 <h5 class="mb-0">Parent Information</h5>
                             </div>
                             <div class="card-body">
                                 <div class="row">
                                     <div class="col-md-6">
-                                        <div class="mb-3">
+                                        <div class="mb-2">
                                             <label class="form-label">Parent Name</label>
                                             <input type="text" class="form-control" name="parent_name" value="{{ parent.name }}" required>
                                         </div>
-                                        <div class="mb-3">
+                                        <div class="mb-2">
                                             <label class="form-label">Email</label>
                                             <input type="email" class="form-control" name="parent_email" value="{{ parent.email }}" required>
                                         </div>
-                                        <div class="mb-3">
+                                        <div class="mb-2">
                                             <label class="form-label">Phone</label>
                                             <input type="tel" class="form-control" name="parent_phone" value="{{ parent.phone }}">
                                         </div>
                                     </div>
                                     <div class="col-md-6">
-                                        <div class="mb-3">
+                                        <div class="mb-2">
                                             <label class="form-label">Address</label>
-                                            <textarea class="form-control" name="parent_address" rows="3">{{ parent.address }}</textarea>
+                                            <textarea class="form-control" name="parent_address" rows="2">{{ parent.address }}</textarea>
                                         </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Medical Information Section -->
-                        <div class="card mb-4">
+                        <!-- Medical Information -->
+                        <div class="card mb-3">
                             <div class="card-header">
                                 <h5 class="mb-0">Medical Information</h5>
                             </div>
                             <div class="card-body">
                                 <div class="row">
                                     <div class="col-md-6">
-                                        <div class="mb-3">
+                                        <div class="mb-2">
                                             <label class="form-label">Allergies</label>
-                                            <textarea class="form-control" name="allergies" rows="3">{{ medical_info.allergies }}</textarea>
+                                            <textarea class="form-control" name="allergies" rows="2">{{ medical_info.allergies }}</textarea>
                                         </div>
-                                        <div class="mb-3">
+                                        <div class="mb-2">
                                             <label class="form-label">Medical Conditions</label>
-                                            <textarea class="form-control" name="medical_conditions" rows="3">{{ medical_info.medical_conditions }}</textarea>
+                                            <textarea class="form-control" name="medical_conditions" rows="2">{{ medical_info.medical_conditions }}</textarea>
                                         </div>
                                     </div>
                                     <div class="col-md-6">
-                                        <div class="mb-3">
+                                        <div class="mb-2">
                                             <label class="form-label">Emergency Contact</label>
                                             <input type="text" class="form-control" name="emergency_contact" value="{{ medical_info.emergency_contact }}">
                                         </div>
-                                        <div class="mb-3">
+                                        <div class="mb-2">
                                             <label class="form-label">Emergency Phone</label>
                                             <input type="tel" class="form-control" name="emergency_phone" value="{{ medical_info.emergency_phone }}">
                                         </div>
@@ -138,8 +128,8 @@
                             </div>
                         </div>
 
-                        <!-- Attendance Summary Section -->
-                        <div class="card mb-4">
+                        <!-- Attendance Summary -->
+                        <div class="card mb-3">
                             <div class="card-header">
                                 <h5 class="mb-0">Attendance Summary</h5>
                             </div>
@@ -153,8 +143,8 @@
                             </div>
                         </div>
 
-                        <!-- Recent Attendance Records Section -->
-                        <div class="card mb-4">
+                        <!-- Recent Attendance Records -->
+                        <div class="card mb-3">
                             <div class="card-header">
                                 <h5 class="mb-0">Recent Attendance Records</h5>
                             </div>
@@ -172,7 +162,7 @@
                                         <tbody>
                                             {% for attendance in recent_attendance %}
                                             <tr>
-                                                <td>{{ attendance.sign_in|date:"F j, Y" }}</td>
+                                                <td>{{ attendance.sign_in|date:"F j" }}</td>
                                                 <td>{{ attendance.sign_in|time:"H:i" }}</td>
                                                 <td>
                                                     {% if attendance.sign_out %}
