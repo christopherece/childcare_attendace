@@ -151,15 +151,21 @@ USE_TZ = True
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Static files configuration
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+# Directories where Django will look for static files
 STATICFILES_DIRS = [
     BASE_DIR / 'static',
+    BASE_DIR / 'attendance/static',
+    BASE_DIR / 'reports/static',
+    BASE_DIR / 'notifications/static',
 ]
 
-# Default primary key field type
-# https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
-
-DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+# Admin Site Settings
+ADMIN_SITE_HEADER = 'Childcare Attendance System'
+ADMIN_SITE_TITLE = 'Childcare Attendance System'
+ADMIN_INDEX_TITLE = 'Welcome to Childcare Attendance System'
 
 # Email settings
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'

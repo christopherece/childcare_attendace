@@ -1,0 +1,87 @@
+{% extends "admin/base.html" %}
+{% load static %}
+
+{% block title %}{{ title }} | {{ site_title|default:_('Childcare Attendance System') }}{% endblock %}
+
+{% block branding %}
+    <div id="branding" style="display: flex; align-items: center; background-color: #fff0f5; padding: 10px; border-radius: 4px;">
+        <h1 id="site-name" style="display: flex; align-items: center; gap: 10px; color: #ff69b4; font-weight: 600; margin: 0;">
+            <img src="{% static 'admin/img/logo.png' %}" alt="Childcare Attendance Logo" height="40" width="auto">
+            <span style="display: flex; align-items: center; font-size: 1.5rem;">
+                Childcare Attendance System
+            </span>
+        </h1>
+    </div>
+{% endblock %}
+
+{% block extrastyle %}
+    {{ block.super }}
+    <style>
+        /* Custom admin styles */
+        .module h2, .module caption, .module .actions th {
+            background-color: #ff69b4;
+        }
+        .module .actions th {
+            color: white;
+        }
+        .module .addlink {
+            background-color: #ff69b4;
+            color: white;
+        }
+        .module .addlink:hover {
+            background-color: #ff1493;
+            color: white;
+        }
+        .breadcrumbs {
+            background-color: #ffe4e1;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .breadcrumbs a {
+            color: #ff69b4;
+        }
+        .breadcrumbs a:hover {
+            color: #ff1493;
+        }
+        /* Custom navigation buttons */
+        .custom-nav {
+            text-align: right;
+            padding: 10px;
+            background-color: #fff0f5;
+            border-bottom: 1px solid #dee2e6;
+        }
+        .custom-nav a {
+            margin-left: 10px;
+            padding: 5px 10px;
+            background-color: #ff69b4;
+            color: white !important;
+            text-decoration: none;
+            border-radius: 4px;
+        }
+        .custom-nav a:hover {
+            background-color: #ff1493;
+            background-color: #45a049;
+        }
+    </style>
+{% endblock %}
+
+{% block nav-global %}
+    <div class="custom-nav">
+        <a href="{% url 'attendance:dashboard' %}" class="btn btn-light" style="margin-right: 10px;">
+            <i class="fas fa-home"></i> Dashboard
+        </a>
+        <a href="{% url 'reports:admin_portal' %}" class="btn btn-light" style="margin-right: 10px;">
+            <i class="fas fa-chart-bar"></i> Reports
+        </a>
+    </div>
+    {{ block.super }}
+{% endblock %}
+
+{% block footer %}
+    {{ block.super }}
+    <div class="footer">
+        <p style="text-align: center; margin-top: 20px; color: #6c757d;">
+            &copy; 2025 Childcare Attendance System. All rights reserved.
+        </p>
+    </div>
+{% endblock %}

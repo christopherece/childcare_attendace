@@ -322,38 +322,89 @@ def admin_portal(request):
             end_date = next_month - timedelta(days=next_month.day)
         
         # Write header section
-        writer.writerow(['', '', '', ''])  # Empty row for spacing
-        writer.writerow(['Childcare Attendance Report'])
-        writer.writerow(['Center:', center_name])
-        writer.writerow(['Report Type:', {'daily': 'Daily', 'weekly': 'Weekly', 'monthly': 'Monthly'}[export_type]])
-        writer.writerow(['Date Range:', f"{start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}"])
+        writer.writerow(['Childcare Attendance Report', '', '', ''])
+        writer.writerow(['Center:', center_name, '', ''])
+        writer.writerow(['Report Type:', {'daily': 'Daily', 'weekly': 'Weekly', 'monthly': 'Monthly'}[export_type], '', ''])
+        writer.writerow(['Date Range:', f"{start_date.strftime('%B %d, %Y')} to {end_date.strftime('%B %d, %Y')}", '', ''])
         writer.writerow(['', '', '', ''])  # Empty row for spacing
         
-        # Get all attendance records within the date range
-        attendance_records = Attendance.objects.filter(
-            sign_in__date__gte=start_date,
-            sign_in__date__lte=end_date
-        ).order_by('child__name', 'sign_in')
+        # Get teacher's profile
+        teacher = request.user.teacher_profile
         
-        # Get all attendance records within the date range
-        attendance_records = Attendance.objects.filter(
-            sign_in__date__gte=start_date,
-            sign_in__date__lte=end_date
-        ).order_by('child__name', 'sign_in')
+        # Get all children from teacher's center and rooms
+        children = Child.objects.filter(
+            center=teacher.center,
+            room__in=teacher.rooms.all()
+        ).order_by('name')
+        
+        # For each child, get their attendance records within the date range
+        for child in children:
+            # Get child's attendance records
+            attendance_records = Attendance.objects.filter(
+                child=child,
+                sign_in__date__gte=start_date,
+                sign_in__date__lte=end_date
+            ).order_by('sign_in')
+            
+            # Write child header row
+            writer.writerow([
+                child.name,
+                child.parent.name,
+                child.room.name if child.room else '',
+                '',
+                '',
+                ''
+            ])
+            
+            # If there are attendance records, write them
+            if attendance_records.exists():
+                for record in attendance_records:
+                    writer.writerow([
+                        '',
+                        '',
+                        record.sign_in.strftime('%d/%m/%Y %H:%M'),
+                        record.sign_out.strftime('%d/%m/%Y %H:%M') if record.sign_out else 'Not signed out',
+                        'Late' if record.late else 'On Time',
+                        record.notes or ''
+                    ])
+            else:
+                # If no attendance records, show "No attendance today"
+                writer.writerow([
+                    '',
+                    '',
+                    'No attendance today',
+                    '',
+                    '',
+                    ''
+                ])
+        
+        # Write column headers
+        writer.writerow(['Child Name', 'Parent Name', 'Sign In Time', 'Sign Out Time', 'Status', 'Notes'])
         
         # Process records by child
         current_child = None
         for record in attendance_records:
             if record.child != current_child:
                 current_child = record.child
-            
-            # Write attendance record in a single row format
-            writer.writerow([
-                record.child.name,
-                record.child.parent.name,
-                record.sign_in.strftime('%Y-%m-%d %H:%M:%S'),
-                record.sign_out.strftime('%Y-%m-%d %H:%M:%S') if record.sign_out else ''
-            ])
+                # Write child header row
+                writer.writerow([
+                    record.child.name,
+                    record.child.parent.name,
+                    record.sign_in.strftime('%d/%m/%Y %H:%M'),
+                    record.sign_out.strftime('%d/%m/%Y %H:%M') if record.sign_out else 'Not signed out',
+                    'Late' if record.late else 'On Time',
+                    record.notes or ''
+                ])
+            else:
+                # Write additional attendance record
+                writer.writerow([
+                    '',
+                    '',
+                    record.sign_in.strftime('%d/%m/%Y %H:%M'),
+                    record.sign_out.strftime('%d/%m/%Y %H:%M') if record.sign_out else 'Not signed out',
+                    'Late' if record.late else 'On Time',
+                    record.notes or ''
+                ])
         
         return response
     
