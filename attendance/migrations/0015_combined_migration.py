@@ -11,26 +11,10 @@ class Migration(migrations.Migration):
         # Fix user fields
         migrations.RunSQL(
             sql="""
-            -- Remove any custom created_at field if it exists
-            ALTER TABLE auth_user DROP COLUMN IF EXISTS created_at;
-            
-            -- Add default values for date_joined if it exists
-            ALTER TABLE auth_user 
-            ALTER COLUMN date_joined SET DEFAULT CURRENT_TIMESTAMP;
-            
-            -- Update existing records with current timestamp for date_joined
+            -- Update date_joined if it exists and is NULL
             UPDATE auth_user 
             SET date_joined = CURRENT_TIMESTAMP 
             WHERE date_joined IS NULL;
-            
-            -- Add default values for updated_at if it exists
-            ALTER TABLE auth_user 
-            ALTER COLUMN updated_at SET DEFAULT CURRENT_TIMESTAMP;
-            
-            -- Update existing records with current timestamp for updated_at
-            UPDATE auth_user 
-            SET updated_at = CURRENT_TIMESTAMP 
-            WHERE updated_at IS NULL;
             """,
         ),
     ]
