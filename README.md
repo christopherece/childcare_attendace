@@ -1,23 +1,27 @@
 # Childcare Attendance System
 
-A Django-based web application for managing childcare attendance with features including real-time tracking, notifications, and reporting.
+[![Python 3.13](https://img.shields.io/badge/python-3.13-blue.svg)](https://www.python.org/downloads/release/python-3130/)
+[![Django 5.2.1](https://img.shields.io/badge/django-5.2.1-blue.svg)](https://www.djangoproject.com/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-## Features
+A modern Django-based web application for managing childcare attendance with real-time tracking, notifications, and comprehensive reporting capabilities.
 
-### Core Features
-- Real-time attendance tracking with sign-in/sign-out functionality
-- Automatic notifications for parents and staff
-- Late sign-in notifications with customizable reasons
-- Dashboard with live search for children
-- Comprehensive attendance records with historical data
-- Center management with capacity tracking
-- Teacher profiles and assignments
+## 🚀 Features
 
-### User Roles
-- Teachers: Manage attendance, view records, and update profiles
-- Admin: Full access to all features and system management
+### 📱 Core Features
+- ✅ Real-time attendance tracking with sign-in/sign-out functionality
+- ✅ Automatic notifications for parents and staff
+- ✅ Late sign-in notifications with customizable reasons
+- ✅ Dashboard with live search for children
+- ✅ Comprehensive attendance records with historical data
+- ✅ Center management with capacity tracking
+- ✅ Teacher profiles and assignments
 
-## Project Structure
+### 👥 User Roles
+- 📝 Teachers: Manage attendance, view records, and update profiles
+- ⚙️ Admin: Full access to all features and system management
+
+## 📁 Project Structure
 
 ```
 childcare_attendace/
@@ -32,7 +36,7 @@ childcare_attendace/
 └── static/             # Static files (CSS, JS, images)
 ```
 
-## Setup Instructions
+## 🛠️ Setup Instructions
 
 1. Create and activate virtual environment:
 ```bash
@@ -69,46 +73,46 @@ python manage.py runserver
 - Main application: http://localhost:8000
 - Admin panel: http://localhost:8000/admin
 
-## Usage
+## 📊 Usage
 
-### Teacher Login
+### 📱 Teacher Login
 - Teachers can log in using their credentials
 - Dashboard shows all children in their center
 - Live search functionality for quick lookup
 
-### Attendance Management
+### 📅 Attendance Management
 - Sign-in/Sign-out functionality with timestamps
 - Automatic notifications to parents
 - Late sign-in tracking with reasons
 - Attendance records view with detailed information
 
-### Notifications
+### 📧 Notifications
 - Email notifications for sign-ins and late arrivals
 - Customizable notification templates
 - Notification history tracking
 
-## Database Schema
+## 📊 Database Schema
 
-### Key Models
+### 📝 Key Models
 - Child: Stores child information, parent relationship, and attendance records
 - Parent: Contact information and relationship to children
 - Attendance: Tracks sign-in/sign-out times, status, and notes
 - Center: Childcare center information including capacity and contact details
 - Teacher: Staff profiles with center assignments
 
-## Security
+## 🔐 Security
 - All pages require authentication
 - Role-based access control
 - CSRF protection for forms
 - Secure password hashing
 - Email verification for notifications
 
-## Timezone Handling
+## 🕒 Timezone Handling
 - All timestamps are stored in UTC
 - Displayed in Pacific/Auckland timezone
 - Automatic timezone conversion for user interface
 
-## Contributing
+## 🤝 Contributing
 
 1. Fork the repository
 2. Create your feature branch
@@ -116,10 +120,24 @@ python manage.py runserver
 4. Push to the branch
 5. Create a Pull Request
 
-## License
+## 📄 License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
 
-## Support
+## 🆘 Support
 
 For support, please open an issue in the GitHub repository.
+
+## 📚 Documentation
+
+- [User Guide](docs/user_guide.md)
+- [API Documentation](docs/api.md)
+- [Deployment Guide](docs/deployment.md)
+
+## 🎯 Roadmap
+
+- [ ] Multi-language support
+- [ ] Mobile app integration
+- [ ] Advanced reporting features
+- [ ] Parent portal
+- [ ] Analytics dashboard
