@@ -6,7 +6,79 @@ from django.db.models.functions import ExtractHour
 from django.http import HttpResponse
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 import csv
+from django.contrib import messages
+from django.db import transaction
 from attendance.models import Child, Parent, Attendance, Center, Teacher
+
+# Add new view for child details
+def child_details(request, child_id):
+    child = get_object_or_404(Child, id=child_id)
+    parent = child.parent
+    
+    # Handle form submission
+    if request.method == 'POST':
+        # Update child information
+        child.name = request.POST.get('child_name', child.name)
+        child.gender = request.POST.get('gender', child.gender)
+        child.allergies = request.POST.get('allergies', child.allergies)
+        child.medical_conditions = request.POST.get('medical_conditions', child.medical_conditions)
+        child.emergency_contact = request.POST.get('emergency_contact', child.emergency_contact)
+        child.emergency_phone = request.POST.get('emergency_phone', child.emergency_phone)
+        
+        # Handle profile picture upload
+        if 'profile_picture' in request.FILES:
+            child.profile_picture = request.FILES['profile_picture']
+        
+        # Update parent information
+        parent.name = request.POST.get('parent_name', parent.name)
+        parent.email = request.POST.get('parent_email', parent.email)
+        parent.phone = request.POST.get('parent_phone', parent.phone)
+        parent.address = request.POST.get('parent_address', parent.address)
+        
+        try:
+            with transaction.atomic():
+                child.save()
+                parent.save()
+                messages.success(request, 'Child information updated successfully')
+        except Exception as e:
+            messages.error(request, f'Error updating information: {str(e)}')
+            
+    # Get recent attendance records
+    thirty_days_ago = timezone.now().date() - timedelta(days=30)
+    recent_attendance = Attendance.objects.filter(
+        child=child,
+        sign_in__date__gte=thirty_days_ago
+    ).order_by('-sign_in')
+    
+    # Calculate attendance statistics
+    total_possible_days = (timezone.now().date() - thirty_days_ago).days + 1
+    total_attended_days = recent_attendance.count()
+    attendance_rate = (total_attended_days / total_possible_days * 100) if total_possible_days > 0 else 0
+    
+    # Prepare medical information
+    medical_info = {
+        'allergies': child.allergies if child.allergies else '',
+        'medical_conditions': child.medical_conditions if child.medical_conditions else '',
+        'emergency_contact': child.emergency_contact,
+        'emergency_phone': child.emergency_phone
+    }
+    
+    # Get the correct profile picture URL
+    if child.profile_picture:
+        profile_picture_url = child.profile_picture.url
+    else:
+        profile_picture_url = '/static/images/child_pix/user-default.png'
+    
+    context = {
+        'child': child,
+        'parent': parent,
+        'recent_attendance': recent_attendance,
+        'attendance_rate': f'{attendance_rate:.1f}%',
+        'medical_info': medical_info,
+        'profile_picture_url': profile_picture_url,
+        'genders': ['Male', 'Female', 'Other']
+    }
+    return render(request, 'reports/child_details.html', context)
 
 
 def admin_portal(request):
@@ -26,8 +98,8 @@ def admin_portal(request):
         messages.error(request, 'You are not a teacher')
         return redirect('attendance:dashboard')
     
-    # Get children from this center with their attendance status
-    children = Child.objects.filter(center=center).select_related('center', 'parent')
+    # Get children from this center with their attendance status, sorted alphabetically
+    children = Child.objects.filter(center=center).select_related('center', 'parent').order_by('name')
     
     # Apply filters if present
     status_filter = request.GET.get('status', '')
@@ -91,7 +163,8 @@ def admin_portal(request):
             'is_signed_in': is_signed_in,
             'has_attendance': has_attendance,
             'attendance_records': todays_attendance,
-            'attendance_rate': f'{attendance_rate:.1f}%'
+            'attendance_rate': f'{attendance_rate:.1f}%',
+            'child_id': child.id
         })
     
     # Sort all children by attendance rate

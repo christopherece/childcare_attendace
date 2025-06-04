@@ -1,0 +1,243 @@
+{% extends 'attendance/base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                {% if messages %}
+                <div class="alert alert-info">
+                    {% for message in messages %}
+                    <p{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</p>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">Edit Child Details - {{ child.name }}</h4>
+                    <a href="{% url 'reports:admin_portal' %}" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Back to Admin Portal</a>
+                </div>
+                <div class="card-body">
+                    <form method="POST" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        
+                        <!-- Profile Section -->
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <h5 class="mb-0">Profile</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="text-center mb-4">
+                                    <img src="{{ profile_picture_url }}" alt="{{ child.name }}" class="rounded-circle" style="width: 150px; height: 150px; object-fit: cover;">
+                                    <div class="mt-2">
+                                        <input type="file" class="form-control" name="profile_picture" accept="image/*">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Personal Information Section -->
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <h5 class="mb-0">Personal Information</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label class="form-label">Name</label>
+                                            <input type="text" class="form-control" name="child_name" value="{{ child.name }}" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Date of Birth</label>
+                                            <input type="date" class="form-control" name="date_of_birth" value="{{ child.date_of_birth|date:"Y-m-d" }}" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Gender</label>
+                                            <select class="form-select" name="gender" required>
+                                                {% for gender in genders %}
+                                                <option value="{{ gender }}" {% if child.gender == gender %}selected{% endif %}>{{ gender }}</option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label class="form-label">Age</label>
+                                            <input type="number" class="form-control" id="child_age" value="{{ child.age }}" disabled>
+                                            <small class="form-text text-muted">Age will be automatically calculated based on date of birth</small>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Center</label>
+                                            <input type="text" class="form-control" value="{{ child.center.name }}" disabled>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Parent Information Section -->
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <h5 class="mb-0">Parent Information</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label class="form-label">Parent Name</label>
+                                            <input type="text" class="form-control" name="parent_name" value="{{ parent.name }}" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Email</label>
+                                            <input type="email" class="form-control" name="parent_email" value="{{ parent.email }}" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Phone</label>
+                                            <input type="tel" class="form-control" name="parent_phone" value="{{ parent.phone }}">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label class="form-label">Address</label>
+                                            <textarea class="form-control" name="parent_address" rows="3">{{ parent.address }}</textarea>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Medical Information Section -->
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <h5 class="mb-0">Medical Information</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label class="form-label">Allergies</label>
+                                            <textarea class="form-control" name="allergies" rows="3">{{ medical_info.allergies }}</textarea>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Medical Conditions</label>
+                                            <textarea class="form-control" name="medical_conditions" rows="3">{{ medical_info.medical_conditions }}</textarea>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label class="form-label">Emergency Contact</label>
+                                            <input type="text" class="form-control" name="emergency_contact" value="{{ medical_info.emergency_contact }}">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Emergency Phone</label>
+                                            <input type="tel" class="form-control" name="emergency_phone" value="{{ medical_info.emergency_phone }}">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Attendance Summary Section -->
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <h5 class="mb-0">Attendance Summary</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="card bg-light p-3">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <h6 class="mb-0">Last 30 Days Attendance Rate</h6>
+                                        <span class="badge bg-primary">{{ attendance_rate }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Recent Attendance Records Section -->
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <h5 class="mb-0">Recent Attendance Records</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="table-responsive">
+                                    <table class="table table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>Date</th>
+                                                <th>Sign In</th>
+                                                <th>Sign Out</th>
+                                                <th>Duration</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for attendance in recent_attendance %}
+                                            <tr>
+                                                <td>{{ attendance.sign_in|date:"F j, Y" }}</td>
+                                                <td>{{ attendance.sign_in|time:"H:i" }}</td>
+                                                <td>
+                                                    {% if attendance.sign_out %}
+                                                        {{ attendance.sign_out|time:"H:i" }}
+                                                    {% else %}
+                                                        <span class="text-warning">Still In</span>
+                                                    {% endif %}
+                                                </td>
+                                                <td>
+                                                    {% if attendance.sign_out %}
+                                                        {{ attendance.duration|time:"H:i" }}
+                                                    {% else %}
+                                                        <span class="text-warning">-</span>
+                                                    {% endif %}
+                                                </td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Submit Button -->
+                        <div class="text-end">
+                            <button type="submit" class="btn btn-primary">Save Changes</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Function to calculate age from date of birth
+    function calculateAge(dob) {
+        const today = new Date();
+        const birthDate = new Date(dob);
+        let age = today.getFullYear() - birthDate.getFullYear();
+        const m = today.getMonth() - birthDate.getMonth();
+        if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+            age--;
+        }
+        return age;
+    }
+
+    // Update age when date of birth changes
+    const dobInput = document.querySelector('input[name="date_of_birth"]');
+    const ageInput = document.getElementById('child_age');
+
+    if (dobInput && ageInput) {
+        // Update age when date of birth changes
+        dobInput.addEventListener('change', function() {
+            const age = calculateAge(this.value);
+            ageInput.value = age;
+        });
+
+        // Calculate age when page loads
+        const initialAge = calculateAge(dobInput.value);
+        ageInput.value = initialAge;
+    }
+});
+</script>
+{% endblock %}

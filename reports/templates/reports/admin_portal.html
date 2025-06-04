@@ -133,7 +133,7 @@
                                 <tbody>
                                     {% for child_data in children_data %}
                                     <tr>
-                                        <td>{{ child_data.child.name }}</td>
+                                        <td><a href="{% url 'reports:child_details' child_data.child.id %}" class="text-decoration-none">{{ child_data.child.name }}</a></td>
                                         <td>{{ child_data.child.parent.name }}</td>
                                         <td>
                                             <div class="d-flex align-items-center">
@@ -242,7 +242,7 @@
                                 {% if most_active_children %}
                                     {% for child in most_active_children %}
                                     <tr>
-                                        <td>{{ child.child.name }}</td>
+                                        <td><a href="{% url 'reports:child_details' child.child.id %}" class="text-decoration-none">{{ child.child.name }}</a></td>
                                         <td>{{ child.child.parent.name }}</td>
                                         <td>
                                             <div class="d-flex align-items-center">
