@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.db import models
-from .models import Child, Parent, Attendance, Center, Teacher
+from .models import Child, Parent, Attendance, Center, Teacher, Room
 
 @admin.register(Center)
 class CenterAdmin(admin.ModelAdmin):
@@ -90,3 +90,13 @@ class TeacherAdmin(admin.ModelAdmin):
     def get_today_status(self, obj):
         return obj.get_today_status()
     get_today_status.short_description = 'Status'
+
+@admin.register(Room)
+class RoomAdmin(admin.ModelAdmin):
+    list_display = ('name', 'center', 'capacity', 'age_range', 'created_at')
+    list_filter = ('center', 'capacity', 'age_range')
+    search_fields = ('name', 'center__name', 'age_range', 'description')
+    ordering = ('center', 'name')
+    
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('center')

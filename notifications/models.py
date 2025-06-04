@@ -1,7 +1,5 @@
 from django.db import models
 from django.utils import timezone
-from django.utils import timezone
-from attendance.models import Child, Parent
 from datetime import timedelta
 
 NOTIFICATION_TYPES = [
@@ -11,8 +9,8 @@ NOTIFICATION_TYPES = [
 ]
 
 class Notification(models.Model):
-    child = models.ForeignKey(Child, on_delete=models.CASCADE, related_name='notifications')
-    parent = models.ForeignKey(Parent, on_delete=models.CASCADE, related_name='notifications')
+    child = models.ForeignKey('attendance.Child', on_delete=models.CASCADE, related_name='notifications')
+    parent = models.ForeignKey('attendance.Parent', on_delete=models.CASCADE, related_name='notifications')
     notification_type = models.CharField(max_length=20, choices=NOTIFICATION_TYPES)
     message = models.TextField()
     timestamp = models.DateTimeField(auto_now_add=True)

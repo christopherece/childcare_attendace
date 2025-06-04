@@ -16,9 +16,26 @@ class Center(models.Model):
     def __str__(self):
         return self.name
 
+class Room(models.Model):
+    name = models.CharField(max_length=100)
+    center = models.ForeignKey(Center, on_delete=models.CASCADE, related_name='rooms')
+    capacity = models.IntegerField()
+    age_range = models.CharField(max_length=50, help_text="e.g., '2-3 years', '3-5 years'")
+    description = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        unique_together = ('center', 'name')
+        ordering = ['name']
+    
+    def __str__(self):
+        return f"{self.name} at {self.center.name}"
+
 class Teacher(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='teacher_profile')
-    center = models.ForeignKey(Center, on_delete=models.SET_NULL, null=True, blank=True)
+    center = models.ForeignKey(Center, on_delete=models.SET_NULL, null=True, blank=True, related_name='teachers')
+    rooms = models.ManyToManyField(Room, blank=True, related_name='teachers')
     position = models.CharField(max_length=100, default='Teacher')
     profile_picture = models.ImageField(upload_to='static/images/teachers/', blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -45,11 +62,19 @@ class Child(models.Model):
     name = models.CharField(max_length=100)
     parent = models.ForeignKey(Parent, on_delete=models.CASCADE, related_name='children')
     center = models.ForeignKey(Center, on_delete=models.SET_NULL, null=True, blank=True, related_name='children')
+    room = models.ForeignKey(Room, on_delete=models.SET_NULL, null=True, blank=True, related_name='children')
     date_of_birth = models.DateField()
     gender = models.CharField(
         max_length=10,
         choices=[('Male', 'Male'), ('Female', 'Female'), ('Other', 'Other')]
     )
+    emergency_contact = models.CharField(max_length=100, default='Emergency Contact')
+    emergency_phone = models.CharField(max_length=15, default='')
+    allergies = models.TextField(blank=True, null=True)
+    medical_conditions = models.TextField(blank=True, null=True)
+    profile_picture = models.ImageField(upload_to='static/images/children/', blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
     allergies = models.TextField(blank=True, null=True)
     medical_conditions = models.TextField(blank=True, null=True)
     emergency_contact = models.CharField(max_length=100)
