@@ -1,9 +1,10 @@
 from django.shortcuts import render, get_object_or_404
-from django.db.models import Count, Avg, Sum
+from django.db.models import Count, Avg, Sum, Q
 from datetime import datetime, timedelta
 from django.utils import timezone
 from django.db.models.functions import ExtractHour
 from django.http import HttpResponse
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 import csv
 from attendance.models import Child, Parent, Attendance, Center, Teacher
 
@@ -14,13 +15,47 @@ def admin_portal(request):
     current_time = timezone.now()
     
     # Get the teacher's center
-    teacher = get_object_or_404(Teacher, user=request.user)
-    center = teacher.center
+    try:
+        teacher = get_object_or_404(Teacher, user=request.user)
+        center = teacher.center
+        
+        if not center:
+            messages.error(request, 'You are not assigned to any center')
+            return redirect('attendance:dashboard')
+    except Teacher.DoesNotExist:
+        messages.error(request, 'You are not a teacher')
+        return redirect('attendance:dashboard')
     
     # Get children from this center with their attendance status
-    children = Child.objects.filter(center=center).select_related('center')
-    children_data = []
+    children = Child.objects.filter(center=center).select_related('center', 'parent')
     
+    # Apply filters if present
+    status_filter = request.GET.get('status', '')
+    if status_filter:
+        if status_filter == 'signed_in':
+            children = children.filter(attendance__sign_in__date=today, attendance__sign_out__isnull=True)
+        elif status_filter == 'signed_out':
+            children = children.filter(attendance__sign_in__date=today, attendance__sign_out__isnull=False)
+        elif status_filter == 'not_signed':
+            children = children
+    
+    # Apply search filter if provided
+    search_query = request.GET.get('search', '')
+    if search_query:
+        children = children.filter(
+            Q(name__icontains=search_query) |
+            Q(parent__name__icontains=search_query)
+        )
+        print(f"\nAfter search filter (search='{search_query}'):")
+        print(f"Total children: {children.count()}")
+        for child in children:
+            print(f"- {child.name} (Parent: {child.parent.name})")
+    
+    # First get all attendance statistics before pagination
+    all_children_data = []
+    thirty_days_ago = today - timedelta(days=30)
+    
+    # Get attendance statistics for each child
     for child in children:
         # Get today's attendance records for this child
         todays_attendance = Attendance.objects.filter(
@@ -28,20 +63,49 @@ def admin_portal(request):
             sign_in__date=today
         ).order_by('sign_in')
         
+        # Get attendance records for the last 30 days
+        recent_attendance = Attendance.objects.filter(
+            child=child,
+            sign_in__date__gte=thirty_days_ago
+        )
+        
+        # Calculate attendance rate for this child
+        total_possible_days = (today - thirty_days_ago).days + 1
+        total_attended_days = recent_attendance.count()
+        attendance_rate = (total_attended_days / total_possible_days * 100) if total_possible_days > 0 else 0
+        
+        # Check current attendance status
         is_signed_in = False
+        has_attendance = False
+        current_attendance_time = None
+        
         if todays_attendance.exists():
+            has_attendance = True
             last_record = todays_attendance.last()
             is_signed_in = last_record.sign_out is None
+            if is_signed_in:
+                current_attendance_time = last_record.sign_in.time().strftime('%H:%M')
         
-        children_data.append({
+        all_children_data.append({
             'child': child,
             'is_signed_in': is_signed_in,
+            'has_attendance': has_attendance,
             'attendance_records': todays_attendance,
-            'center_name': center.name if center else 'Unknown Center'
+            'attendance_rate': f'{attendance_rate:.1f}%'
         })
     
-    # Calculate statistics for this center
-    total_children = children.count()
+    # Sort all children by attendance rate
+    all_children_data = sorted(all_children_data, key=lambda x: float(x['attendance_rate'].rstrip('%')), reverse=True)
+    
+    # Now apply pagination
+    paginator = Paginator(all_children_data, 10)  # 10 children per page
+    page = request.GET.get('page', 1)
+    try:
+        children_data = paginator.page(page)
+    except PageNotAnInteger:
+        children_data = paginator.page(1)
+    except EmptyPage:
+        children_data = paginator.page(paginator.num_pages)
     
     # Get signed in children using the same logic as dashboard
     signed_in_children = []
@@ -59,7 +123,34 @@ def admin_portal(request):
     
     total_signed_in = len(signed_in_children)
     
-
+    # Add most active children section
+    # Get all children's attendance rates
+    children_attendance_rates = []
+    for child_data in all_children_data:
+        children_attendance_rates.append({
+            'child': child_data['child'],
+            'attendance_rate': float(child_data['attendance_rate'].rstrip('%'))
+        })
+    
+    # Sort by attendance rate and get top 5
+    most_active_children = sorted(
+        children_attendance_rates,
+        key=lambda x: x['attendance_rate'],
+        reverse=True
+    )[:5]
+    
+    # Debugging - print out some information
+    print(f"Total children: {len(children)}")
+    print(f"Signed in children: {total_signed_in}")
+    print(f"Children attendance rates: {children_attendance_rates}")
+    
+    # Debugging - print out most active children
+    print("\nMost active children:")
+    for child in most_active_children:
+        print(f"- {child['child'].name}: {child['attendance_rate']}% attendance")
+    
+    # Calculate statistics for this center
+    total_children = len(children)
     
     # Get attendance records for the last 7 days
     week_ago = timezone.now() - timedelta(days=7)
@@ -80,7 +171,20 @@ def admin_portal(request):
         'total_signed_in': total_signed_in,
         'total_signed_out': total_children - total_signed_in,
         'hourly_stats': hourly_stats,
-        'current_time': current_time
+        'current_time': current_time,
+        'most_active_children': most_active_children,
+        'center': center
+    }
+    
+    context = {
+        'children': children_data,
+        'total_children': total_children,
+        'total_signed_in': total_signed_in,
+        'total_signed_out': total_children - total_signed_in,
+        'hourly_stats': hourly_stats,
+        'current_time': current_time,
+        'most_active_children': most_active_children,
+        'center': center
     }
     
     # Handle CSV export with different time periods
