@@ -38,6 +38,8 @@ class Teacher(models.Model):
     rooms = models.ManyToManyField(Room, blank=True, related_name='teachers')
     position = models.CharField(max_length=100, default='Teacher')
     profile_picture = models.ImageField(upload_to='static/images/teachers/', blank=True, null=True)
+    phone = models.CharField(max_length=20, blank=True, null=True, help_text='Optional contact phone number')
+    email = models.EmailField(blank=True, null=True, help_text='Optional contact email')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -72,13 +74,6 @@ class Child(models.Model):
     emergency_phone = models.CharField(max_length=15, default='')
     allergies = models.TextField(blank=True, null=True)
     medical_conditions = models.TextField(blank=True, null=True)
-    profile_picture = models.ImageField(upload_to='static/images/children/', blank=True, null=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    allergies = models.TextField(blank=True, null=True)
-    medical_conditions = models.TextField(blank=True, null=True)
-    emergency_contact = models.CharField(max_length=100)
-    emergency_phone = models.CharField(max_length=20)
     profile_picture = models.ImageField(upload_to='child_pix/', blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -100,9 +95,8 @@ class Child(models.Model):
     def get_profile_picture_url(self):
         """Return the URL of the profile picture or a default image"""
         if self.profile_picture:
-            relative_path = self.profile_picture.name
-            return f"/static/images/child_pix/{relative_path.split('/')[-1]}"
-        return '/static/images/child_pix/user-default.png'
+            return self.profile_picture.url
+        return '/static/images/user-default.png'
 
 class Attendance(models.Model):
     child = models.ForeignKey(Child, on_delete=models.CASCADE)

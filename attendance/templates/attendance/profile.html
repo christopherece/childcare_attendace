@@ -1,6 +1,8 @@
 {% extends 'attendance/base.html' %}
 {% load static %}
 
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" integrity="sha512-9usAa10IRO0HhonpyAIVpjrylPvoDwiPUiKdWk5t3PyolY1cOd4DSE0Ga+ri4AuTroPR5aQvXU9xC6qOPnzFeg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+
 {% block extra_css %}
 <style>
     .profile-container {
@@ -67,6 +69,12 @@
         <h2>{{ teacher.user.get_full_name }}</h2>
         <p class="text-muted">{{ teacher.position }}</p>
         <p class="text-muted">{{ teacher.center.name }}</p>
+        {% if teacher.phone %}
+        <p class="text-muted"><i class="fas fa-phone"></i> {{ teacher.phone }}</p>
+        {% endif %}
+        {% if teacher.email %}
+        <p class="text-muted"><i class="fas fa-envelope"></i> {{ teacher.email }}</p>
+        {% endif %}
         {% if teacher_rooms %}
         <p class="text-muted mt-2">
             <strong>Rooms:</strong>

@@ -159,7 +159,6 @@ STATICFILES_DIRS = [
     BASE_DIR / 'static',
     BASE_DIR / 'attendance/static',
     BASE_DIR / 'reports/static',
-    BASE_DIR / 'notifications/static',
 ]
 
 # Admin Site Settings
