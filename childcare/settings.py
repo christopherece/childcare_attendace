@@ -175,7 +175,3 @@ EMAIL_HOST_USER = 'newzealandchildcare@gmail.com'
 EMAIL_HOST_PASSWORD = 'ttgc lznr qcjt cofk'
 
 import os
-from dotenv import load_dotenv
-
-# Load environment variables
-load_dotenv()
