@@ -11,9 +11,13 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
+import pytz
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# New Zealand timezone
+NZ_TIMEZONE = pytz.timezone('Pacific/Auckland')
 
 
 # Quick-start development settings - unsuitable for production

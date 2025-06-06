@@ -221,6 +221,15 @@
         background-color: #f3f4f6;
     }
 
+    .clickable-search-item {
+        cursor: pointer;
+        padding: 0.5rem;
+    }
+
+    .clickable-search-item:hover {
+        background-color: #f3f4f6;
+    }
+
     .list-group-item img {
         width: 40px;
         height: 40px;
@@ -350,10 +359,44 @@
                     <h3 class="card-title mb-0">Childcare Attendance</h3>
                 </div>
                 <div class="card-body">
-                    <div class="search-container">
-                        <input type="text" class="form-control" id="searchInput" placeholder="Search children...">
-                        <div id="searchResults" class="list-group"></div>
+                    <div class="search-container position-relative">
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="searchInput" placeholder="Search by child or parent name...">
+                            <button class="btn btn-outline-secondary" type="button" id="clearSearch">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        <div id="searchResults" class="list-group list-group-flush position-absolute w-100 mt-2 rounded shadow-sm" style="max-height: 300px; overflow-y: auto; z-index: 1000;"></div>
                     </div>
+                    
+                    <script>
+                    // Clear search button functionality
+                    document.addEventListener('DOMContentLoaded', function() {
+                        const clearSearch = document.getElementById('clearSearch');
+                        const searchInput = document.getElementById('searchInput');
+                        
+                        if (clearSearch && searchInput) {
+                            clearSearch.addEventListener('click', function() {
+                                searchInput.value = '';
+                                searchInput.dispatchEvent(new Event('input'));
+                            });
+                            
+                            searchInput.addEventListener('input', function() {
+                                clearSearch.style.display = this.value ? 'block' : 'none';
+                            });
+                            
+                            // Hide results when clicking outside
+                            document.addEventListener('click', function(e) {
+                                if (!e.target.closest('.search-container')) {
+                                    const searchResults = document.getElementById('searchResults');
+                                    if (searchResults) {
+                                        searchResults.style.display = 'none';
+                                    }
+                                }
+                            });
+                        }
+                    });
+                    </script>
                 </div>
             </div>
             <div class="card card-lg mt-3">
@@ -410,7 +453,7 @@
                         </div>
                         <div class="mb-3">
                             <label class="form-label">Center</label>
-                            <input type="text" class="form-control" name="center_name" readonly>
+                            <input type="text" class="form-control" id="centerName" name="center_name" readonly>
                         </div>
                         <div class="mb-3">
                             <label class="form-label">Parent</label>
@@ -424,9 +467,9 @@
                             <label class="form-label">Notes (Optional)</label>
                             <textarea class="form-control" id="attendanceNotes" name="notes" rows="3"></textarea>
                         </div>
-                        <div class="btn-group">
-                            <button type="submit" class="btn btn-primary" id="signInButton" disabled>Sign In</button>
-                            <button type="submit" class="btn btn-outline-danger" id="signOutButton" disabled>Sign Out</button>
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary flex-grow-1" id="signInButton" title="">Sign In</button>
+                            <button type="submit" class="btn btn-danger flex-grow-1" id="signOutButton" title="Child must be signed in first">Sign Out</button>
                         </div>
                     </form>
                 </div>
@@ -439,6 +482,20 @@
 
 {% block extra_js %}
 <script>
+// Helper function to escape HTML
+function escapeHtml(unsafe) {
+    if (unsafe === undefined || unsafe === null) {
+        return '';
+    }
+    return unsafe
+        .toString()
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
 // Function to automatically dismiss messages after 5 seconds
 function autoDismissMessages() {
     const messages = document.querySelectorAll('.alert');
@@ -518,95 +575,76 @@ observer.observe(document.body, { childList: true, subtree: true });
 
 // Global function for selecting a child
 function selectChild(id, childName, parentName, centerName) {
-    const searchInput = document.getElementById('searchInput');
-    const searchResults = document.getElementById('searchResults');
-    const selectedChildId = document.getElementById('selectedChildId');
-    const parentNameInput = document.getElementById('parentName');
-    const childNameInput = document.getElementById('childName');
-    const signInButton = document.getElementById('signInButton');
-    const signOutButton = document.getElementById('signOutButton');
-    const attendanceNotes = document.getElementById('attendanceNotes');
-    const centerInput = document.querySelector('input[name="center_name"]');
-    
-    // Update center name
-    if (centerInput) {
-        centerInput.value = centerName || 'Unknown Center';
-    }
-    
-    // Update form fields
-    selectedChildId.value = id;
-    childNameInput.value = childName;
-    parentNameInput.value = parentName;
-    attendanceNotes.value = '';
-    
-    // Enable buttons
-    if (signInButton) signInButton.disabled = false;
-    if (signOutButton) signOutButton.disabled = false;
-    
-    // Clear search results
-    if (searchResults) searchResults.innerHTML = '';
-    if (searchInput) searchInput.value = childName;
-    
-    // Update the profile picture and get attendance status
-    fetch(`${window.location.origin}${"{% url 'attendance:child_profile' %}"}?id=${id}`)
+    // Check if child is already signed in for today
+    fetch(`{% url 'attendance:check_sign_in' %}?child_id=${id}`)
         .then(response => response.json())
         .then(data => {
-            const profilePicture = document.getElementById('profilePicture');
-            if (profilePicture) {
-                // Construct proper image URL
-                let imageUrl = data.profile_picture;
-                
-                // If no image is provided, use default
-                if (!imageUrl || imageUrl === 'None') {
-                    imageUrl = '/media/child_pix/user-default.png';
-                }
-                
-                // Ensure we have a proper absolute URL
-                if (!imageUrl.startsWith('http')) {
-                    imageUrl = window.location.origin + imageUrl;
-                }
-                profilePicture.src = imageUrl;
+            // Clear any existing selected child
+            const selectedChildId = document.getElementById('selectedChildId');
+            if (selectedChildId) {
+                selectedChildId.value = id;
             }
             
-            // Update attendance status
-            const attendanceStatus = document.getElementById('attendanceStatus');
-            if (attendanceStatus) {
-                attendanceStatus.textContent = data.attendance_status;
-            }
+            // Update form fields
+            const childNameInput = document.getElementById('childName');
+            const parentNameInput = document.getElementById('parentName');
+            const centerNameInput = document.getElementById('centerName');
             
-            // Update sign-in/sign-out buttons based on status
-            if (signInButton) {
-                signInButton.disabled = data.is_signed_in;
+            if (childNameInput) childNameInput.value = childName;
+            if (parentNameInput) parentNameInput.value = parentName;
+            if (centerNameInput) centerNameInput.value = centerName;
+
+            // Show success message
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'alert alert-success alert-dismissible fade show';
+            messageDiv.innerHTML = `
+                <strong>${childName}</strong> selected successfully.
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            
+            const messagesContainer = document.getElementById('messages');
+            if (messagesContainer) {
+                messagesContainer.innerHTML = '';
+                messagesContainer.appendChild(messageDiv);
             }
-            if (signOutButton) {
-                signOutButton.disabled = !data.is_signed_in;
+
+            // Clear search input and results
+            const searchInput = document.getElementById('searchInput');
+            if (searchInput) {
+                searchInput.value = '';
+                const searchResults = document.getElementById('searchResults');
+                if (searchResults) {
+                    searchResults.innerHTML = '';
+                }
+            }
+
+            // Disable/enable sign in button based on check_sign_in response
+            const signInButton = document.getElementById('signInButton');
+            const signOutButton = document.getElementById('signOutButton');
+            
+            if (signInButton && signOutButton) {
+                if (data.already_signed_in) {
+                    // If already signed in
+                    signInButton.disabled = true;
+                    signInButton.title = `Already signed in at ${data.sign_in_time}`;
+                    signOutButton.disabled = false;
+                    signOutButton.title = '';
+                } else {
+                    // If not signed in
+                    signInButton.disabled = false;
+                    signInButton.title = '';
+                    signOutButton.disabled = false;  // Keep sign out button enabled
+                    signOutButton.title = 'Child must be signed in first';
+                }
             }
         })
         .catch(error => {
-            console.error('Error loading profile picture:', error);
-            const profilePicture = document.getElementById('profilePicture');
-            if (profilePicture) {
-                // Use absolute URL for default image
-                const baseUrl = window.location.origin;
-                profilePicture.src = `${baseUrl}{% static 'images/child_pix/user-default.png' %}`;
-            }
+            console.error('Error checking sign-in status:', error);
+            alert('Error checking sign-in status. Please try again.');
         });
 }
 
-// Helper function to escape HTML
-function escapeHtml(unsafe) {
-    if (unsafe === undefined || unsafe === null) {
-        return '';
-    }
-    return unsafe
-        .toString()
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
-}
-
+// Initialize search functionality
 document.addEventListener('DOMContentLoaded', function() {
     // Initialize elements
     const searchInput = document.getElementById('searchInput');
@@ -615,12 +653,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const loadingIndicator = document.createElement('div');
     loadingIndicator.className = 'text-center mb-3';
     loadingIndicator.innerHTML = '<div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div>';
-
-    // Check if all elements exist
-    if (!searchInput || !searchResults || !form) {
-        console.error('Search elements not found');
-        return;
-    }
 
     // Handle form submission
     form.addEventListener('submit', function(e) {
@@ -635,43 +667,60 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
-        // Reset form state on each submission
-        form.removeAttribute('data-submitted');
-        const buttons = form.querySelectorAll('button[type="submit"]');
-        buttons.forEach(button => button.disabled = false);
-
-        // Check if child is already signed in for today
-        if (submitButton && submitButton.id === 'signInButton') {
-            fetch(`{% url 'attendance:check_sign_in' %}?child_id=${selectedChildId.value}`)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.already_signed_in) {
-                        alert(`Child is already signed in today at ${data.sign_in_time}`);
-                        return;
-                    }
-                    
-                    // If not signed in, proceed with submission
-                    actionInput.value = 'sign_in';
-                    form.submit();
-                })
-                .catch(error => {
-                    console.error('Error checking sign-in status:', error);
-                    alert('Error checking sign-in status. Please try again.');
-                });
+        // Check button type and handle accordingly
+        if (submitButton) {
+            if (submitButton.id === 'signOutButton') {
+                // For sign out, check if child is signed in
+                fetch(`{% url 'attendance:check_sign_in' %}?child_id=${selectedChildId.value}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (!data.already_signed_in) {
+                            alert('Child must be signed in to sign out');
+                            return;
+                        }
+                        
+                        // If signed in, proceed with sign out
+                        actionInput.value = 'sign_out';
+                        form.submit();
+                    })
+                    .catch(error => {
+                        console.error('Error checking sign-out status:', error);
+                        alert('Error checking sign-out status. Please try again.');
+                    });
+                
+                // Prevent default submission while we check
+                e.preventDefault();
+                return;
+            }
             
-            // Prevent default submission while we check
-            e.preventDefault();
-            return;
+            if (submitButton.id === 'signInButton') {
+                // For sign in, check if child is already signed in
+                fetch(`{% url 'attendance:check_sign_in' %}?child_id=${selectedChildId.value}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.already_signed_in) {
+                            alert(`Child is already signed in today at ${data.sign_in_time}`);
+                            return;
+                        }
+                        
+                        // If not signed in, proceed with submission
+                        actionInput.value = 'sign_in';
+                        form.submit();
+                    })
+                    .catch(error => {
+                        console.error('Error checking sign-in status:', error);
+                        alert('Error checking sign-in status. Please try again.');
+                    });
+                
+                // Prevent default submission while we check
+                e.preventDefault();
+                return;
+            }
         }
         
-        // For sign out, just proceed
-        actionInput.value = 'sign_out';
-        
-        // Mark form as submitted
-        form.setAttribute('data-submitted', 'true');
-        
-        // Disable submit buttons
-        buttons.forEach(button => button.disabled = true);
+        // If we got here, prevent default submission
+        e.preventDefault();
+        alert('Please select either Sign In or Sign Out');
     });
 
     // Search functionality
@@ -689,71 +738,100 @@ document.addEventListener('DOMContentLoaded', function() {
             searchResults.innerHTML = '';
             searchResults.appendChild(loadingIndicator);
             
-            // Get CSRF token from cookie
-            function getCookie(name) {
-                let cookieValue = null;
-                if (document.cookie && document.cookie !== '') {
-                    const cookies = document.cookie.split(';');
-                    for (let i = 0; i < cookies.length; i++) {
-                        const cookie = cookies[i].trim();
-                        if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                            cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                            break;
-                        }
-                    }
-                }
-                return cookieValue;
-            }
-            
-            const csrftoken = getCookie('csrftoken');
-            
             fetch(`{% url 'attendance:search_children' %}?q=${encodeURIComponent(searchTerm)}`, {
-                method: 'GET',
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest'
-                }
+                method: 'GET'
             })
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error('Search failed');
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    if (data.error) {
-                        throw new Error(data.error);
-                    }
-                    if (data.length === 0) {
-                        searchResults.innerHTML = '<div class="text-center text-muted">No results found</div>';
-                    } else {
-                        const resultsHtml = data.map(child => `
-                            <div class="list-group-item list-group-item-action d-flex align-items-center" 
-                               onclick="selectChild(${child.id}, '${escapeHtml(child.name)}', '${escapeHtml(child.parent__name)}', '${escapeHtml(child.center_name)}')">
-                                <div class="d-flex align-items-center">
-                                    <img src="${child.profile_picture}" alt="${escapeHtml(child.name)}" 
-                                         class="rounded-circle me-3" style="width: 40px; height: 40px; object-fit: cover;">
-                                    <div>
-                                        <h6 class="mb-1">${escapeHtml(child.name)}</h6>
-                                        <small class="text-muted">${escapeHtml(child.parent__name)}</small>
-                                        <small class="text-muted mt-1">
-                                            <span class="attendance-status">
-                                                <i class="fas fa-circle me-1 ${child.attendance_status === 'Signed In' ? 'text-success' : child.attendance_status === 'Signed Out' ? 'text-danger' : 'text-muted'}"></i>
-                                                ${child.attendance_status || 'Not Signed In'}
-                                            </span>
-                                        </small>
-                                    </div>
-                                </div>
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                searchResults.innerHTML = '';
+                
+                if (!Array.isArray(data)) {
+                    throw new Error('Invalid response format');
+                }
+                
+                if (data.length === 0) {
+                    searchResults.innerHTML = '<div class="text-center text-muted">No results found</div>';
+                    return;
+                }
+                
+                data.forEach(child => {
+                    const item = document.createElement('div');
+                    item.className = 'list-group-item list-group-item-action py-2';
+                    
+                    // Escape HTML content
+                    const escapedName = escapeHtml(child.name);
+                    const escapedParent = escapeHtml(child.parent);
+                    const escapedCenter = escapeHtml(child.center);
+                    
+                    item.innerHTML = `
+                        <div class="d-flex align-items-center clickable-search-item" 
+                             data-child-id="${child.id}" 
+                             data-child-name="${escapedName}" 
+                             data-parent-name="${escapedParent}" 
+                             data-center-name="${escapedCenter}">
+                            <div>
+                                <h6 class="mb-0">${escapedName}</h6>
+                                <small class="text-muted">${escapedParent}</small>
+                                <small class="text-muted d-block">${escapedCenter}</small>
                             </div>
-                        `).join('');
-                        searchResults.innerHTML = resultsHtml;
-                    }
-                })
-                .catch(error => {
-                    searchResults.innerHTML = '<div class="text-center text-danger">Error searching: ' + error.message + '</div>';
-                    console.error('Search error:', error);
+                        </div>
+                    `;
+                    searchResults.appendChild(item);
                 });
+            })
+            .catch(error => {
+                console.error('Search error details:', {
+                    message: error.message,
+                    stack: error.stack,
+                    url: window.location.href
+                });
+                
+                let errorMessage = 'Error searching for children';
+                if (error.message) {
+                    errorMessage += ': ' + error.message;
+                }
+                
+                searchResults.innerHTML = `
+                    <div class="alert alert-danger">
+                        <h6 class="alert-heading">Search Error</h6>
+                        <p>${errorMessage}</p>
+                        <p class="mb-0">Please try again or contact support if the problem persists.</p>
+                    </div>
+                `;
+            })
+            .finally(() => {
+                // Remove loading indicator
+                if (searchResults.contains(loadingIndicator)) {
+                    searchResults.removeChild(loadingIndicator);
+                }
+            });
         } else {
             searchResults.innerHTML = '';
+        }
+    });
+
+    // Add click handler for search results
+    searchResults.addEventListener('click', function(e) {
+        const item = e.target.closest('.clickable-search-item');
+        if (item) {
+            const childId = item.dataset.childId;
+            const childName = item.dataset.childName;
+            const parentName = item.dataset.parentName;
+            const centerName = item.dataset.centerName;
+            selectChild(childId, childName, parentName, centerName);
+        }
+    });
+
+    // Add keyboard navigation
+    searchInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            searchInput.value = '';
+            searchInput.dispatchEvent(new Event('input'));
         }
     });
 });

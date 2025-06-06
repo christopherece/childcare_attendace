@@ -44,6 +44,18 @@
         padding: 20px;
         color: #6c757d;
     }
+    
+    .loading-spinner {
+        text-align: center;
+        padding: 20px;
+    }
+    
+    .error-message {
+        color: #dc3545;
+        padding: 10px;
+        border-radius: 4px;
+        background-color: #f8d7da;
+    }
 </style>
 {% endblock %}
 
@@ -65,65 +77,264 @@
                             <th>Notes</th>
                         </tr>
                     </thead>
-                    <tbody>
-                        {% for record_data in attendance_data %}
-                            <tr>
-                                <td>
-                                    <strong>{{ record_data.child.name }}</strong>
-                                    <small class="text-muted">{{ record_data.child.parent.name }} (Parent)</small>
-                                </td>
-                                <td>
-                                    {% if record_data.records %}
-                                        <div class="d-flex flex-column">
-                                            {% for record in record_data.records %}
-                                                <span>{{ record.sign_in }}</span>
-                                            {% endfor %}
-                                        </div>
-                                    {% else %}
-                                        <span class="text-muted">-</span>
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    {% if record_data.records %}
-                                        <div class="d-flex flex-column">
-                                            {% for record in record_data.records %}
-                                                <span>{{ record.sign_out }}</span>
-                                            {% endfor %}
-                                        </div>
-                                    {% else %}
-                                        <span class="text-muted">-</span>
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    {% if record_data.records %}
-                                        <div class="d-flex flex-column">
-                                            {% for record in record_data.records %}
-                                                <span class="{% if record.status == 'Signed In' %}status-signed-in{% elif record.status == 'Signed Out' %}status-signed-out{% else %}status-not-signed{% endif %}">
-                                                    {{ record.status }}
-                                                </span>
-                                            {% endfor %}
-                                        </div>
-                                    {% else %}
-                                        <span class="status-not-signed">Not Signed In</span>
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    {% if record_data.records %}
-                                        <div class="d-flex flex-column">
-                                            {% for record in record_data.records %}
-                                                <span>{{ record.notes }}</span>
-                                            {% endfor %}
-                                        </div>
-                                    {% else %}
-                                        <span class="text-muted">-</span>
-                                    {% endif %}
-                                </td>
-                            </tr>
-                        {% endfor %}
+                    <tbody id="attendance-body">
+                        <!-- Table rows will be populated by JavaScript -->
                     </tbody>
                 </table>
             </div>
         </div>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const tableBody = document.getElementById('attendance-body');
+    const loadingSpinner = document.createElement('div');
+    loadingSpinner.className = 'loading-spinner';
+    loadingSpinner.innerHTML = '<div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div>';
+    
+    // Initial data fetch
+    fetchAttendance();
+
+    // Function to fetch attendance data
+    async function fetchAttendance() {
+        tableBody.innerHTML = '';
+        tableBody.appendChild(loadingSpinner);
+        
+        try {
+            const response = await fetch(`/attendance/attendance-records/`);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            
+            if (!Array.isArray(data)) {
+                throw new Error('Invalid response format');
+            }
+            
+            // Clear table
+            tableBody.innerHTML = '';
+            
+            // Add rows
+            data.forEach(record => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>
+                        <strong>${record.child.name}</strong>
+                        <small class="text-muted">${record.child.parent.name} (Parent)</small>
+                    </td>
+                    <td>
+                        ${record.sign_in ? `<div class="d-flex flex-column">
+                            <span>${record.sign_in}</span>
+                        </div>` : '<span class="text-muted">-</span>'}
+                    </td>
+                    <td>
+                        ${record.sign_out ? `<div class="d-flex flex-column">
+                            <span>${record.sign_out}</span>
+                        </div>` : '<span class="text-muted">-</span>'}
+                    </td>
+                    <td>
+                        <span class="${getStatusClass(record.status)}">${record.status}</span>
+                        ${record.status === 'Not Signed In' ? `
+                            <button class="btn btn-sm btn-success ms-2 sign-in-btn" data-child-id="${record.child.id}">
+                                <i class="fas fa-sign-in-alt"></i> Sign In
+                            </button>
+                        ` : ''}
+                        ${record.status === 'Signed In' ? `
+                            <button class="btn btn-sm btn-warning ms-2 sign-out-btn" data-child-id="${record.child.id}">
+                                <i class="fas fa-sign-out-alt"></i> Sign Out
+                            </button>
+                        ` : ''}
+                    </td>
+                    <td>
+                        ${record.notes ? `<div class="d-flex flex-column">
+                            <span>${record.notes}</span>
+                        </div>` : '<span class="text-muted">-</span>'}
+                    </td>
+                `;
+                tableBody.appendChild(row);
+            });
+        } catch (error) {
+            console.error('Error fetching attendance:', error);
+            const errorRow = document.createElement('tr');
+            errorRow.innerHTML = `
+                <td colspan="5" class="error-message">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    Error loading attendance records: ${error.message}
+                </td>
+            `;
+            tableBody.appendChild(errorRow);
+        }
+    }
+
+    // Add click handlers
+    tableBody.addEventListener('click', function(e) {
+        const target = e.target;
+        
+        // Handle sign-in
+        if (target.classList.contains('sign-in-btn')) {
+            const childId = target.dataset.childId;
+            if (!childId) {
+                console.error('No child ID found for sign-in');
+                return;
+            }
+            handleSignIn(childId);
+        }
+        
+        // Handle sign-out
+        if (target.classList.contains('sign-out-btn')) {
+            const childId = target.dataset.childId;
+            if (!childId) {
+                console.error('No child ID found for sign-out');
+                return;
+            }
+            handleSignOut(childId);
+        }
+    });
+
+    // Function to get status class
+    function getStatusClass(status) {
+        switch (status) {
+            case 'Signed In':
+                return 'status-signed-in';
+            case 'Signed Out':
+                return 'status-signed-out';
+            default:
+                return 'status-not-signed';
+        }
+    }
+
+    // Function to handle sign-in
+    async function handleSignIn(childId) {
+        const row = document.querySelector(`[data-child-id="${childId}"]`).closest('tr');
+        const statusCell = row.cells[3];
+        const signInCell = row.cells[1];
+        
+        // Check if there's already a sign-in time
+        const existingSignIn = signInCell.querySelector('span');
+        if (existingSignIn && existingSignIn.textContent !== '-') {
+            if (!confirm(`This child is already signed in today at ${existingSignIn.textContent}.\n\nDo you want to sign them in again?`)) {
+                return;
+            }
+        }
+
+        const loadingSpinner = document.createElement('div');
+        loadingSpinner.className = 'loading-spinner';
+        loadingSpinner.innerHTML = '<div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div>';
+        statusCell.innerHTML = '';
+        statusCell.appendChild(loadingSpinner);
+
+        try {
+            const response = await fetch(`/attendance/sign-in/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({ child_id: childId })
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+            
+            if (data.success) {
+                statusCell.innerHTML = `
+                    <span class="status-signed-in">Signed In</span>
+                    <button class="btn btn-sm btn-warning ms-2 sign-out-btn" data-child-id="${childId}">
+                        <i class="fas fa-sign-out-alt"></i> Sign Out
+                    </button>
+                `;
+                
+                signInCell.innerHTML = `<div class="d-flex flex-column">
+                    <span>${data.sign_in_time}</span>
+                </div>`;
+            } else {
+                if (data.existing_sign_in) {
+                    alert(`This child is already signed in today at ${data.existing_sign_in}.`);
+                } else {
+                    alert(data.error || 'Failed to sign in child');
+                }
+            }
+        } catch (error) {
+            console.error('Error signing in:', error);
+            alert(`Error signing in: ${error.message}`);
+            statusCell.innerHTML = `
+                <span class="status-not-signed">Not Signed In</span>
+                <button class="btn btn-sm btn-success ms-2 sign-in-btn" data-child-id="${childId}">
+                    <i class="fas fa-sign-in-alt"></i> Sign In
+                </button>
+            `;
+        } finally {
+            loadingSpinner.remove();
+        }
+    }
+
+    // Function to handle sign-out
+    async function handleSignOut(childId) {
+        if (!confirm('Are you sure you want to sign out this child?')) {
+            return;
+        }
+
+        const loadingSpinner = document.querySelector('.loading-spinner');
+        loadingSpinner.style.display = 'block';
+
+        try {
+            const response = await fetch(`/attendance/sign-out/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({ child_id: childId })
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+            
+            if (data.success) {
+                // Update the row in place
+                const row = document.querySelector(`[data-child-id="${childId}"]`).closest('tr');
+                const statusCell = row.cells[3];
+                statusCell.innerHTML = `<span class="status-signed-out">Signed Out</span>`;
+                
+                // Update the sign-out time cell
+                const signOutCell = row.cells[2];
+                signOutCell.innerHTML = `<div class="d-flex flex-column">
+                    <span>${data.sign_out_time}</span>
+                </div>`;
+            } else {
+                throw new Error(data.error || 'Failed to sign out child');
+            }
+        } catch (error) {
+            console.error('Error signing out:', error);
+            alert(`Error signing out: ${error.message}`);
+        } finally {
+            loadingSpinner.style.display = 'none';
+        }
+    }
+
+    // Function to get CSRF token from cookies
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+});
+</script>
 {% endblock %}

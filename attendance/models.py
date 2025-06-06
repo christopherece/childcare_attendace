@@ -111,6 +111,47 @@ class Attendance(models.Model):
     
     class Meta:
         ordering = ['-sign_in', '-sign_out']
+        constraints = [
+            # Ensure only one sign-in per child per day
+            models.UniqueConstraint(
+                fields=['child', 'sign_in__date'],
+                name='unique_sign_in_per_day'
+            ),
+            # Ensure active sign-ins are unique
+            models.UniqueConstraint(
+                fields=['child', 'sign_in'],
+                condition=models.Q(sign_out__isnull=True),
+                name='unique_active_sign_in'
+            )
+        ]
+
+    def clean(self):
+        super().clean()
+        
+        if self.sign_in:
+            # Check if there's an existing sign-in for today that hasn't been signed out
+            today = self.sign_in.date()
+            existing = Attendance.objects.filter(
+                child=self.child,
+                sign_in__date=today,
+                sign_out__isnull=True
+            ).exclude(pk=self.pk)
+            
+            if existing.exists():
+                raise ValidationError('Child is already signed in today')
+
+            # Check if sign-out is before sign-in
+            if self.sign_out and self.sign_out <= self.sign_in:
+                raise ValidationError('Sign-out time must be after sign-in time')
+
+            # Check if sign-out is on the same day as sign-in
+            if self.sign_out and self.sign_out.date() != self.sign_in.date():
+                raise ValidationError('Sign-out must be on the same day as sign-in')
+
+    def save(self, *args, **kwargs):
+        """Override save to ensure validation is run"""
+        self.clean()
+        super().save(*args, **kwargs)
     
     def __str__(self):
         if self.center:
@@ -120,11 +161,70 @@ class Attendance(models.Model):
     @classmethod
     def check_existing_record(cls, child):
         """Check if there's an existing record for this child today"""
-        today = timezone.now().date()
+        today = timezone.now().astimezone(NZ_TIMEZONE).date()
         return cls.objects.filter(
             child=child,
-            sign_in__date=today
+            sign_in__date=today,
+            sign_out__isnull=True  # Only count active sign-ins
         ).exists()
+
+    @classmethod
+    def get_today_record(cls, child):
+        """Get today's attendance record for a child"""
+        today = timezone.now().astimezone(NZ_TIMEZONE).date()
+        return cls.objects.filter(
+            child=child,
+            sign_in__date=today,
+            sign_out__isnull=True  # Get the active sign-in
+        ).first()
+
+    @classmethod
+    def validate_sign_in(cls, child):
+        """Validate if a child can sign in today"""
+        if cls.check_existing_record(child):
+            raise ValidationError('Child is already signed in today')
+        return True
+
+    @classmethod
+    def get_daily_attendance(cls, child, date):
+        """Get all attendance records for a child on a specific date"""
+        return cls.objects.filter(
+            child=child,
+            sign_in__date=date
+        ).order_by('-sign_in')
+
+
+
+    @classmethod
+    def validate_sign_in(cls, child):
+        """Validate if a child can sign in today"""
+        if cls.check_existing_record(child):
+            raise ValidationError('Child is already signed in today')
+        return True
+
+    def clean(self):
+        """Run validation checks"""
+        super().clean()
+        
+        if not self.pk:  # Only check on creation
+            if not self.sign_in:
+                raise ValidationError('Sign-in time is required')
+            
+            # Ensure there's no existing sign-in for today
+            if self.child and self.sign_in:
+                self.validate_sign_in(self.child)
+            
+            # Set parent and center based on child
+            if self.child:
+                self.parent = self.child.parent
+                self.center = self.child.center
+        
+        # Validate sign-out time
+        if self.sign_out and self.sign_in:
+            if self.sign_out <= self.sign_in:
+                raise ValidationError('Sign-out time must be after sign-in time')
+            if self.sign_out.date() != self.sign_in.date():
+                raise ValidationError('Sign-out must be on the same day as sign-in')
     
     @classmethod
     def get_today_status(cls, child):

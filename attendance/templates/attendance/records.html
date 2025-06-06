@@ -3,42 +3,56 @@
 {% block title %}Attendance Records{% endblock %}
 
 {% block content %}
-<div class="card">
-    <div class="card-header">
-        <h3 class="card-title">Attendance Records</h3>
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h3 class="card-title mb-0">Attendance Records</h3>
+                    <div class="d-flex gap-2">
+                        <div class="input-group input-group-sm">
+                            <input type="text" id="childFilter" class="form-control" placeholder="Search by child or parent name...">
+                            <button class="btn btn-outline-secondary" type="button" id="clearSearch">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        <select id="roomFilter" class="form-select form-select-sm">
+                            <option value="">All Rooms</option>
+                            <!-- Options will be populated by JavaScript -->
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Child Name</th>
+                                <th>Parent Name</th>    
+                                <th>Center</th>
+                                <th>Status</th>
+                                <th>Last Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        <!-- Table rows will be populated by JavaScript -->
+                    </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
     </div>
-    <div class="card-body">
-        <div class="table-responsive">
-            <table class="table table-striped">
-                <thead>
-                    <tr>
-                        <th>Child Name</th>
-                        <th>Parent Name</th>	
-                        <th>Center</th>
-                        <th>Status</th>
-                        <th>Last Action</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for child in children_data %}
-                    <tr>
-                        <td>{{ child.name }}</td>
-                        <td>{{ child.parent }}</td>
-                        <td>{{ child.center }}</td>
-                        <td>
-                            {% if child.status == 'Signed In' %}
-                                <span class="badge bg-success">{{ child.status }}</span>
-                            {% elif child.status == 'Signed Out' %}
-                                <span class="badge bg-warning">{{ child.status }}</span>
-                            {% else %}
-                                <span class="badge bg-danger">{{ child.status }}</span>
-                            {% endif %}
-                        </td>
-                        <td>{{ child.last_action|default:"-" }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Selected Child Profile</h3>
+            </div>
+            <div class="card-body" id="profile-container">
+                <div class="text-center">
+                    <p>Select a child from the list to view their profile</p>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -49,25 +63,522 @@
 document.addEventListener('DOMContentLoaded', function() {
     const childFilter = document.getElementById('childFilter');
     const dateFilter = document.getElementById('dateFilter');
-    const rows = document.querySelectorAll('tbody tr');
+    const tableBody = document.querySelector('tbody');
+    const loadingSpinner = document.createElement('div');
+    loadingSpinner.className = 'loading-spinner';
+    loadingSpinner.innerHTML = '<div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div>';
+    
+    // Initialize search input
+    const childFilter = document.getElementById('childFilter');
+    const clearSearch = document.getElementById('clearSearch');
+    const roomFilter = document.getElementById('roomFilter');
+    const tableBody = document.querySelector('tbody');
+    const loadingSpinner = document.createElement('div');
+    loadingSpinner.className = 'loading-spinner';
+    loadingSpinner.innerHTML = '<div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div>';
+    
+    // Debounce function for search
+    function debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
+    }
 
-    childFilter.addEventListener('input', filterTable);
-    dateFilter.addEventListener('change', filterTable);
+    // Debounced search function
+    const debouncedSearch = debounce(fetchChildren, 300);
 
-    function filterTable() {
-        const childName = childFilter.value.toLowerCase();
+    // Clear search function
+    function clearSearchInput() {
+        childFilter.value = '';
+        debouncedSearch();
+    }
+
+    // Function to populate room filter options
+    async function populateRoomFilter() {
+        try {
+            const response = await fetch('/attendance/rooms/');
+            const rooms = await response.json();
+            
+            // Clear existing options except the default "All Rooms"
+            while (roomFilter.lastChild) {
+                if (roomFilter.lastChild.value !== '') {
+                    roomFilter.removeChild(roomFilter.lastChild);
+                }
+            }
+            
+            // Add room options
+            rooms.forEach(room => {
+                const option = document.createElement('option');
+                option.value = room.id;
+                option.textContent = room.name;
+                roomFilter.appendChild(option);
+            });
+        } catch (error) {
+            console.error('Error loading rooms:', error);
+        }
+    }
+
+    // Initial data fetch and room population
+    Promise.all([fetchChildren(), populateRoomFilter()]);
+
+    // Add event listeners
+    childFilter.addEventListener('input', debouncedSearch);
+    clearSearch.addEventListener('click', clearSearchInput);
+    roomFilter.addEventListener('change', debouncedSearch);
+    dateFilter.addEventListener('change', fetchChildren);
+    
+    // Function to fetch children data
+    async function fetchChildren() {
+        const query = childFilter.value.trim();
         const date = dateFilter.value;
+        const room = roomFilter.value;
         
-        rows.forEach(row => {
-            const childNameCell = row.cells[0].textContent.toLowerCase();
-            const dateCell = row.cells[2].textContent;
+        // Show loading spinner
+        tableBody.innerHTML = '';
+        tableBody.appendChild(loadingSpinner);
+        
+        try {
+            const response = await fetch(`/attendance/search/?q=${encodeURIComponent(query)}&date=${date}&room=${room}`);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
             
-            const matchesChild = childName ? childNameCell.includes(childName) : true;
-            const matchesDate = date ? dateCell === date : true;
+            const data = await response.json();
             
-            row.style.display = matchesChild && matchesDate ? '' : 'none';
-        });
+            if (!Array.isArray(data)) {
+                throw new Error('Invalid response format');
+            }
+            
+            // Clear table
+            tableBody.innerHTML = '';
+            
+            // Add rows
+            data.forEach(child => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>
+                        <a href="#" class="select-child" data-child-id="${child.id}">
+                            ${child.name}
+                        </a>
+                    </td>
+                    <td>${child.parent}</td>
+                    <td>${child.center}</td>
+                    <td>
+                        ${child.status === 'Signed In' 
+                            ? `<span class="badge bg-success">Signed In</span>
+                              <button class="btn btn-sm btn-danger sign-out-btn" data-child-id="${child.id}">
+                                  Sign Out
+                              </button>`
+                            : child.status === 'Signed Out' 
+                            ? '<span class="badge bg-warning">Signed Out</span>'
+                            : `<span class="badge bg-secondary">Not Signed In</span>
+                              <button class="btn btn-sm btn-success sign-in-btn" data-child-id="${child.id}">
+                                  Sign In
+                              </button>`
+                        }
+                    </td>
+                    <td>${child.last_action || ''}</td>
+                `;
+                tableBody.appendChild(row);
+            });
+        } catch (error) {
+            handleError(error);
+        }
+    }
+
+    // Add loading spinner to the page
+    document.body.appendChild(loadingSpinner);
+    loadingSpinner.style.display = 'none';
+
+    childFilter.addEventListener('input', async function() {
+        const searchTerm = this.value.trim();
+        if (searchTerm.length < 2) return;
+
+        loadingSpinner.style.display = 'block';
+        
+        try {
+            const response = await fetch(`/attendance/search/?q=${encodeURIComponent(searchTerm)}`);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const data = await response.json();
+            
+            // Update table with fresh data
+            tableBody.innerHTML = '';
+            
+            if (Array.isArray(data)) {
+                data.forEach(child => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td><a href="javascript:void(0)" class="select-child" data-child-id="${child.id}">${child.name}</a></td>
+                        <td>${child.parent}</td>
+                        <td>${child.center}</td>
+                        <td>
+                        ${child.status === 'Signed In' 
+                            ? `<span class="badge bg-success">Signed In</span>
+                              <button class="btn btn-sm btn-warning ms-2 sign-out-btn" data-child-id="${child.id}">
+                                  <i class="fas fa-sign-out-alt"></i> Sign Out
+                              </button>`
+                            : child.status === 'Signed Out' 
+                            ? '<span class="badge bg-warning">Signed Out</span>'
+                            : `<span class="badge bg-danger">Not Signed In</span>
+                              <button class="btn btn-sm btn-success ms-2 sign-in-btn" data-child-id="${child.id}">
+                                  <i class="fas fa-sign-in-alt"></i> Sign In
+                              </button>`
+                        }
+                    </td>
+                        <td>${child.last_action || '-'}</td>
+                    `;
+                    tableBody.appendChild(row);
+                });
+            } else {
+                throw new Error('Unexpected response format from server');
+            }
+        } catch (error) {
+            console.error('Error searching:', error.message);
+            const errorRow = document.createElement('tr');
+            errorRow.innerHTML = `
+                <td colspan="5" class="text-danger">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    Search failed: ${error.message}
+                </td>
+            `;
+            tableBody.innerHTML = '';
+            tableBody.appendChild(errorRow);
+        } finally {
+            loadingSpinner.style.display = 'none';
+        }
+    });
+
+    // Initial load of data
+    childFilter.dispatchEvent(new Event('input'));
+
+    // Add click handlers
+    tableBody.addEventListener('click', function(e) {
+        const target = e.target;
+        
+        // Handle child selection
+        if (target.classList.contains('select-child')) {
+            const childId = target.dataset.childId;
+            if (!childId) {
+                console.error('No child ID found in selected row');
+                return;
+            }
+            selectChild(childId);
+        }
+        
+        // Handle sign-out
+        if (target.classList.contains('sign-out-btn')) {
+            const childId = target.dataset.childId;
+            if (!childId) {
+                console.error('No child ID found for sign-out');
+                return;
+            }
+            handleSignOut(childId);
+        }
+        
+        // Handle sign-in
+        if (target.classList.contains('sign-in-btn')) {
+            const childId = target.dataset.childId;
+            if (!childId) {
+                console.error('No child ID found for sign-in');
+                return;
+            }
+            handleSignIn(childId);
+        }
+    });
+
+    // Function to handle sign-in
+    async function handleSignIn(childId) {
+        if (!confirm('Are you sure you want to sign in this child?')) {
+            return;
+        }
+
+        const loadingSpinner = document.querySelector('.loading-spinner');
+        loadingSpinner.style.display = 'block';
+
+        try {
+            const response = await fetch(`/attendance/sign-in/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({ child_id: childId })
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+            
+            if (data.success) {
+                // Update the row in place
+                const row = document.querySelector(`[data-child-id="${childId}"]`).closest('tr');
+                const statusCell = row.cells[3];
+                statusCell.innerHTML = `
+                    <span class="badge bg-success">Signed In</span>
+                    <button class="btn btn-sm btn-warning ms-2 sign-out-btn" data-child-id="${childId}">
+                        <i class="fas fa-sign-out-alt"></i> Sign Out
+                    </button>
+                `;
+                
+                // Update the last action cell
+                const lastActionCell = row.cells[4];
+                lastActionCell.textContent = data.sign_in_time;
+            } else {
+                throw new Error(data.error || 'Failed to sign in child');
+            }
+        } catch (error) {
+            console.error('Error signing in:', error);
+            handleError(`Error signing in: ${error.message}`);
+        } finally {
+            loadingSpinner.style.display = 'none';
+        }
+    }
+
+    // Initial load of data
+    childFilter.dispatchEvent(new Event('input'));
+
+    // Function to handle errors gracefully
+    function handleError(message) {
+        const errorRow = document.createElement('tr');
+        errorRow.innerHTML = `
+            <td colspan="5" class="text-danger">
+                <i class="fas fa-exclamation-triangle"></i>
+                ${message}
+            </td>
+        `;
+        tableBody.innerHTML = '';
+        tableBody.appendChild(errorRow);
+    }
+
+    // Add click handler for sign-out button
+    tableBody.addEventListener('click', function(e) {
+        const target = e.target;
+        if (target.classList.contains('sign-out-btn')) {
+            const childId = target.dataset.childId;
+            if (!childId) {
+                console.error('No child ID found for sign-out');
+                return;
+            }
+            handleSignOut(childId);
+        }
+    });
+
+    // Function to handle sign-out
+    async function handleSignOut(childId) {
+        if (!confirm('Are you sure you want to sign out this child?')) {
+            return;
+        }
+
+        const loadingSpinner = document.querySelector('.loading-spinner');
+        loadingSpinner.style.display = 'block';
+
+        try {
+            const response = await fetch(`/attendance/sign-out/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({ child_id: childId })
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+            
+            if (data.success) {
+                // Update the row in place
+                const row = document.querySelector(`[data-child-id="${childId}"]`).closest('tr');
+                const statusCell = row.cells[3];
+                statusCell.innerHTML = `
+                    <span class="badge bg-warning">Signed Out</span>
+                    <span class="text-muted small">at ${data.sign_out_time}</span>
+                `;
+                
+                // Update the last action cell
+                const lastActionCell = row.cells[4];
+                lastActionCell.textContent = data.sign_out_time;
+            } else {
+                throw new Error(data.error || 'Failed to sign out child');
+            }
+        } catch (error) {
+            console.error('Error signing out:', error);
+            handleError(`Error signing out: ${error.message}`);
+        } finally {
+            loadingSpinner.style.display = 'none';
+        }
+    }
+
+    // Function to get CSRF token from cookies
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
     }
 });
+
+// Function to select a child and load their profile
+function selectChild(childId) {
+    // Validate child ID
+    if (!childId) {
+        handleError('No child ID provided');
+        return;
+    }
+
+    // Show loading spinner
+    const loadingSpinner = document.querySelector('.loading-spinner');
+    loadingSpinner.style.display = 'block';
+    
+    // Clear any existing error message
+    const errorElement = document.querySelector('.profile-error');
+    if (errorElement) {
+        errorElement.remove();
+    }
+    
+    // Get the profile container
+    const profileContainer = document.getElementById('profile-container');
+    if (!profileContainer) {
+        handleError('Profile container not found');
+        return;
+    }
+
+    // Show loading state
+    profileContainer.innerHTML = '<div class="text-center"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div></div>';
+    
+    // Fetch profile data
+    fetch(`/attendance/child-profile/?id=${childId}`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (!data || typeof data !== 'object') {
+                throw new Error('Invalid response format');
+            }
+            
+            // Update profile container
+            profileContainer.innerHTML = `
+                <div class="profile-image">
+                    <img src="${data.profile_picture || '/media/child_pix/user-default.png'}" 
+                         alt="${data.name || 'Child'}'s profile" 
+                         class="rounded-circle" 
+                         style="width: 150px; height: 150px; object-fit: cover;">
+                </div>
+                <h4>${data.name || 'Unknown Child'}</h4>
+                <p>Parent: ${data.parent || 'No Parent'}</p>
+                <p>Center: ${data.center || 'Unknown Center'}</p>
+                <p>Status: <span class="badge ${getStatusBadgeClass(data.status || 'Not Signed In')}">${data.status || 'Not Signed In'}</span></p>
+                ${data.last_action ? `<p>Last Action: ${data.last_action}</p>` : ''}
+            `;
+        })
+        .catch(error => {
+            console.error('Error loading profile:', error);
+            handleError(`Error loading profile: ${error.message}`);
+        })
+        .finally(() => {
+            loadingSpinner.style.display = 'none';
+        });
+}
+}
+
+function getStatusBadgeClass(status) {
+    switch (status) {
+        case 'Signed In':
+            return 'bg-success';
+        case 'Signed Out':
+            return 'bg-warning';
+        default:
+            return 'bg-danger';
+    }
+}
 </script>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .table th {
+        font-weight: 600;
+    }
+
+    .table-hover tbody tr:hover {
+        background-color: rgba(0, 123, 255, 0.075);
+    }
+
+    .loading-spinner {
+        text-align: center;
+        padding: 20px;
+    }
+
+    .search-container {
+        position: relative;
+        width: 100%;
+    }
+
+    .search-container input {
+        padding-right: 35px;
+    }
+
+    .clear-search-btn {
+        position: absolute;
+        right: 10px;
+        top: 50%;
+        transform: translateY(-50%);
+        background: none;
+        border: none;
+        color: #6c757d;
+        cursor: pointer;
+        padding: 0 8px;
+    }
+
+    .clear-search-btn:hover {
+        color: #495057;
+    }
+
+    .status-badge {
+        padding: 5px 10px;
+        border-radius: 12px;
+        font-size: 0.9em;
+        min-width: 100px;
+        text-align: center;
+    }
+
+    .status-badge.signed-in {
+        background-color: #28a745;
+        color: white;
+    }
+
+    .status-badge.signed-out {
+        background-color: #ffc107;
+        color: #000;
+    }
+
+    .status-badge.not-signed-in {
+        background-color: #6c757d;
+        color: white;
+    }
+
+</style>
 {% endblock %}
