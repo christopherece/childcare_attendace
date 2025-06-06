@@ -32,7 +32,7 @@ class AttendanceAdmin(admin.ModelAdmin):
     )
     search_fields = ('child__name', 'parent__name', 'center__name', 'notes')
     ordering = ('-sign_in',)
-    actions = ['export_as_csv']
+    actions = ['export_as_pdf']
 
     def get_queryset(self, request):
         queryset = super().get_queryset(request)
@@ -56,36 +56,71 @@ class TeacherAdmin(admin.ModelAdmin):
         return f"{obj.user.first_name} {obj.user.last_name}"
     user_full_name.short_description = 'Full Name'
 
-    def export_as_csv(self, request, queryset):
-        """Export selected attendance records as CSV"""
-        import csv
+    def export_as_pdf(self, request, queryset):
+        """Export selected attendance records as PDF"""
+        from reportlab.pdfgen import canvas
+        from reportlab.lib.pagesizes import letter
+        from reportlab.lib import colors
+        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph
+        from reportlab.lib.styles import getSampleStyleSheet
         from django.http import HttpResponse
+        from datetime import datetime
         
-        response = HttpResponse(content_type='text/csv')
-        response['Content-Disposition'] = 'attachment; filename="attendance_records.csv"'
+        # Create the HTTP response with PDF headers
+        response = HttpResponse(content_type='application/pdf')
+        filename = f"attendance_records_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
         
-        writer = csv.writer(response)
-        writer.writerow([
-            'Child Name',
-            'Parent Name',
-            'Center',
-            'Sign In Time',
-            'Sign Out Time',
-            'Status',
-            'Notes'
-        ])
+        # Create the PDF object
+        doc = SimpleDocTemplate(response, pagesize=letter)
+        elements = []
+        
+        # Add title
+        styles = getSampleStyleSheet()
+        title = Paragraph('Attendance Records', styles['Title'])
+        elements.append(title)
+        
+        # Create table data
+        data = [
+            ['Child Name', 'Parent Name', 'Center', 'Sign In Time', 'Sign Out Time', 'Status', 'Notes']
+        ]
         
         for record in queryset:
-            writer.writerow([
+            data.append([
                 record.child.name,
                 record.parent.name,
                 record.center.name if record.center else '',
+                record.sign_in.strftime('%Y-%m-%d %H:%M:%S') if record.sign_in else '',
+                record.sign_out.strftime('%Y-%m-%d %H:%M:%S') if record.sign_out else '',
                 self.get_today_status(record),
                 record.notes
             ])
         
+        # Create table
+        table = Table(data)
+        
+        # Add table style
+        style = TableStyle([
+            ('BACKGROUND', (0,0), (-1,0), colors.grey),
+            ('TEXTCOLOR', (0,0), (-1,0), colors.whitesmoke),
+            ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+            ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0,0), (-1,0), 14),
+            ('BOTTOMPADDING', (0,0), (-1,0), 12),
+            ('BACKGROUND', (0,1), (-1,-1), colors.beige),
+            ('TEXTCOLOR', (0,1), (-1,-1), colors.black),
+            ('FONTNAME', (0,1), (-1,-1), 'Helvetica'),
+            ('FONTSIZE', (0,1), (-1,-1), 12),
+            ('GRID', (0,0), (-1,-1), 1, colors.black)
+        ])
+        table.setStyle(style)
+        elements.append(table)
+        
+        # Build the PDF
+        doc.build(elements)
+        
         return response
-    export_as_csv.short_description = "Export selected records as CSV"
+    export_as_pdf.short_description = "Export selected records as PDF"
 
     def get_today_status(self, obj):
         return obj.get_today_status()
