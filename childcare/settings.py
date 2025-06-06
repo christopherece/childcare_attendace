@@ -109,7 +109,7 @@ DATABASES = {
         'NAME': 'funtime_tbl',
         'USER': 'postgres',
         'PASSWORD': 'Mmsucit1502',
-        'HOST': '192.168.10.42',
+        'HOST': 'localhost',
         'PORT': '5432',
     }
 }

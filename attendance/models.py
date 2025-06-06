@@ -6,7 +6,7 @@ from django.contrib.auth.models import User
 class Center(models.Model):
     name = models.CharField(max_length=100)
     address = models.TextField()
-    phone = models.CharField(max_length=20)
+    phone = models.CharField(max_length=30)
     email = models.EmailField(unique=True)
     capacity = models.IntegerField()
     opening_time = models.TimeField(default='08:30:00')  # Default opening time is 8:30 AM
@@ -50,7 +50,7 @@ class Teacher(models.Model):
 class Parent(models.Model):
     name = models.CharField(max_length=100)
     email = models.EmailField(unique=True)
-    phone = models.CharField(max_length=20, blank=True, null=True)
+    phone = models.CharField(max_length=30, blank=True, null=True)
     address = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -69,7 +69,7 @@ class Child(models.Model):
         choices=[('Male', 'Male'), ('Female', 'Female'), ('Other', 'Other')]
     )
     emergency_contact = models.CharField(max_length=100, default='Emergency Contact')
-    emergency_phone = models.CharField(max_length=15, default='')
+    emergency_phone = models.CharField(max_length=30, default='')
     allergies = models.TextField(blank=True, null=True)
     medical_conditions = models.TextField(blank=True, null=True)
     profile_picture = models.ImageField(upload_to='static/images/children/', blank=True, null=True)
@@ -78,7 +78,7 @@ class Child(models.Model):
     allergies = models.TextField(blank=True, null=True)
     medical_conditions = models.TextField(blank=True, null=True)
     emergency_contact = models.CharField(max_length=100)
-    emergency_phone = models.CharField(max_length=20)
+    emergency_phone = models.CharField(max_length=30)
     profile_picture = models.ImageField(upload_to='child_pix/', blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -159,8 +159,6 @@ class Attendance(models.Model):
                 raise ValidationError('Sign-in time is required')
             if self.sign_out and self.sign_out <= self.sign_in:
                 raise ValidationError('Sign-out time must be after sign-in time')
-            if self.check_existing_record(self.child):
-                raise ValidationError('Child already has an attendance record for today')
         super().clean()
     
     @classmethod
@@ -213,18 +211,16 @@ class Attendance(models.Model):
     @classmethod
     def can_sign_in(cls, child):
         """Check if a child can be signed in today"""
-        today = timezone.now().date()
-        records = cls.get_daily_attendance(child, today)
-        # Can sign in if there are no records or if the last record was a sign-out
-        return len(records) == 0 or (len(records) % 2 == 0)
+        # Always allow sign-in at the start of the day
+        return True
     
     @classmethod
     def can_sign_out(cls, child):
         """Check if a child can be signed out today"""
         today = timezone.now().date()
         records = cls.get_daily_attendance(child, today)
-        # Can sign out if there is at least one sign-in record and the last record is a sign-in
-        return len(records) > 0 and records.last().sign_out is None
+        # Can sign out if there's at least one record with sign_in and no sign_out
+        return records.filter(sign_in__isnull=False, sign_out__isnull=True).exists()
     
     @classmethod
     def check_late_sign_in(cls, child, timestamp):
