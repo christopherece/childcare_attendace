@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Attendance Report</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 2cm;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            padding: 8px;
+            border: 1px solid #000;
+            text-align: left;
+        }
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+    </style>
+</head>
+<body>
+    <h1>Attendance Report</h1>
+    <p>Report Date: {{ report_date }}</p>
+    
+    <table>
+        <thead>
+            <tr>
+                <th>Child Name</th>
+                <th>Sign In Time</th>
+                <th>Sign Out Time</th>
+                <th>Status</th>
+                <th>Notes</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for attendance in attendances %}
+            <tr>
+                <td>{{ attendance.child.name }}</td>
+                <td>{{ attendance.sign_in|date:"h:i A"|default:"-" }}</td>
+                <td>{{ attendance.sign_out|date:"h:i A"|default:"-" }}</td>
+                <td>{{ attendance.status }}</td>
+                <td>{{ attendance.notes|default:"-" }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <p style="font-size: 12px; text-align: center; color: #888; margin-top: 40px;">
+        © 2025 ChildCare App | childcare.topitsolutions.co.nz
+    </p>
+</body>
+</html>

@@ -1,15 +1,25 @@
-from django.shortcuts import render, get_object_or_404
+from django.shortcuts import render, get_object_or_404, redirect
 from django.db.models import Count, Avg, Sum, Q
 from datetime import datetime, timedelta
 from django.utils import timezone
 from django.db.models.functions import ExtractHour
 from django.http import HttpResponse
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+<<<<<<< HEAD
 import csv
 import pytz
+=======
+>>>>>>> bf9ce64d4a125b805fe0271a7c445a408f80a7e9
 from django.contrib import messages
 from django.db import transaction
 from attendance.models import Child, Parent, Attendance, Center, Teacher, Room
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import A4
+from reportlab.lib import colors
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph
+from reportlab.lib.styles import getSampleStyleSheet
+from django.template.loader import render_to_string
+from django.db.models import Prefetch
 
 # Set default timezone to New Zealand
 NZ_TIMEZONE = pytz.timezone('Pacific/Auckland')
@@ -85,49 +95,160 @@ def child_details(request, child_id):
     return render(request, 'reports/child_details.html', context)
 
 
+def generate_pdf_report(attendances, report_type, request):
+    """Generate PDF report with professional layout"""
+    try:
+        # Get the center from the first attendance (assuming all attendances are from the same center)
+        if attendances:
+            center = attendances[0].child.center
+        else:
+            center = None
+        
+        # Prepare data for template
+        for attendance in attendances:
+            attendance.status = 'Present' if attendance.sign_in else 'Absent'
+        
+        # Create response
+        response = HttpResponse(content_type='application/pdf')
+        filename = f"attendance_{report_type}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        
+        # Create PDF using ReportLab
+        doc = SimpleDocTemplate(
+            response,
+            pagesize=A4,
+            rightMargin=30,
+            leftMargin=30,
+            topMargin=40,  # Increased top margin for header
+            bottomMargin=30
+        )
+        
+        # Create styles
+        styles = getSampleStyleSheet()
+        style = styles['Normal']
+        style.fontSize = 12
+        style.leading = 14
+        
+        # Create header with center name
+        header = Paragraph("""
+            <para alignment="center">
+                <font size=20><b>{}</b></font>
+                <br/>
+                <font size=18><b>Attendance Report</b></font>
+                <br/>
+                <font size=12>Report Date: {}</font>
+            </para>
+        """.format(
+            center.name if center else "Childcare Center",
+            datetime.now().strftime('%B %d, %Y')
+        ), styles['Normal'])
+        
+        # Create table data
+        data = [['Child Name', 'Sign In Time', 'Sign Out Time', 'Status', 'Notes']]
+        for attendance in attendances:
+            data.append([
+                attendance.child.name,
+                attendance.sign_in.strftime('%I:%M %p') if attendance.sign_in else '-',
+                attendance.sign_out.strftime('%I:%M %p') if attendance.sign_out else '-',
+                attendance.status,
+                attendance.notes or '-'
+            ])
+        
+        # Create table
+        table = Table(data)
+        
+        # Add table style
+        table.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#2c3e50')),
+            ('TEXTCOLOR', (0,0), (-1,0), colors.whitesmoke),
+            ('ALIGN', (0,0), (-1,0), 'CENTER'),
+            ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0,0), (-1,0), 12),
+            ('BOTTOMPADDING', (0,0), (-1,0), 12),
+            ('BACKGROUND', (0,1), (-1,-1), colors.HexColor('#f9f9f9')),
+            ('TEXTCOLOR', (0,1), (-1,-1), colors.black),
+            ('FONTNAME', (0,1), (-1,-1), 'Helvetica'),
+            ('FONTSIZE', (0,1), (-1,-1), 11),
+            ('GRID', (0,0), (-1,-1), 1, colors.black),
+            ('ALIGN', (0,1), (-1,-1), 'LEFT'),
+            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+            ('INNERGRID', (0,0), (-1,-1), 0.25, colors.black),
+            ('BOX', (0,0), (-1,-1), 0.5, colors.black),
+            ('LEFTPADDING', (0,0), (-1,-1), 12),
+            ('RIGHTPADDING', (0,0), (-1,-1), 12),
+            ('TOPPADDING', (0,0), (-1,-1), 6),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 6)
+        ]))
+        
+        # Add footer
+        footer = Paragraph("© 2025 ChildCare App | childcare.topitsolutions.co.nz", styles['Normal'])
+        footer.style.fontSize = 10
+        footer.style.alignment = 1  # Center align
+        
+        from reportlab.platypus import Spacer
+        
+        # Build document with spacing
+        elements = [
+            header,
+            Spacer(1, 20),  # Add 20-point vertical space
+            table,
+            Spacer(1, 20),  # Add 20-point vertical space before footer
+            footer
+        ]
+        doc.build(elements)
+        
+        return response
+    except Exception as e:
+        messages.error(request, f'Error generating report: {str(e)}')
+        return redirect('reports:admin_portal')
+
+
 def admin_portal(request):
+    """Admin portal view for managing attendance reports"""
     # Get today's date using timezone-aware datetime
     today = timezone.now().date()
     current_time = timezone.now()
     
-    # Get the teacher's center and rooms
+    # Get the teacher's center information
     try:
         teacher = get_object_or_404(Teacher, user=request.user)
         center = teacher.center
-        
-        if not center:
-            messages.error(request, 'You are not assigned to any center')
-            return redirect('attendance:dashboard')
+        center_name = center.name if center else "All Centers"
     except Teacher.DoesNotExist:
-        messages.error(request, 'You are not a teacher')
-        return redirect('attendance:dashboard')
+        center_name = "All Centers"
+        center = None
     
-    # Get all rooms assigned to this teacher
-    teacher_rooms = teacher.rooms.all()
-    print(f"\nTeacher rooms: {teacher_rooms.count()}")
-    for room in teacher_rooms:
-        print(f"- {room.name} (Age Range: {room.age_range})")
+    # Get selected date from query parameters or use today
+    selected_date_str = request.GET.get('date')
+    try:
+        selected_date = datetime.strptime(selected_date_str, '%Y-%m-%d').date() if selected_date_str else today
+    except (ValueError, TypeError):
+        selected_date = today
     
-    # Get all children in this center
-    all_center_children = Child.objects.filter(center=center).select_related('center', 'parent', 'room')
-    print(f"\nAll center children: {all_center_children.count()}")
-    for child in all_center_children:
-        print(f"- {child.name} (Room: {child.room.name if child.room else 'None'})")
+    # Get teacher's rooms (if teacher exists)
+    teacher_rooms = []
+    if teacher:
+        teacher_rooms = teacher.rooms.all()
     
-    # Get children from this center with their attendance status, sorted alphabetically
-    # Match children by their room's age range instead of exact room name
+    # Initialize empty attendances list if no center is found
+    attendances = []
+    
+    # Get attendance records for the selected date if center exists
+    if center:
+        attendances = Attendance.objects.filter(
+            child__center=center,
+            sign_in__date=selected_date
+        ).select_related('child', 'child__parent', 'child__room').order_by('child__name')
+
+    # Handle PDF export if requested
+    if request.GET.get('export_pdf') == '1':
+        return generate_pdf_report(attendances, 'daily', request)
+
+    # Get all children from this center with attendance records for the selected date
     children = Child.objects.filter(
         center=center,
-        room__age_range__in=[room.age_range for room in teacher_rooms]
-    ).select_related('center', 'parent', 'room').order_by('name')
-    
-    print(f"\nFiltered children: {children.count()}")
-    for child in children:
-        print(f"- {child.name} (Room: {child.room.name if child.room else 'None'})")
-    
-    print(f"\nTotal children before filters: {children.count()}")
-    for child in children:
-        print(f"- {child.name} (Room: {child.room.name if child.room else 'None'})")
+        attendance__sign_in__date=selected_date
+    ).distinct() if center else Child.objects.none()
     
     # Apply filters if present
     status_filter = request.GET.get('status', '')
@@ -140,6 +261,7 @@ def admin_portal(request):
         print(f"Total children: {children.count()}")
         for child in children:
             print(f"- {child.name} (Room: {child.room.name if child.room else 'None'})")
+<<<<<<< HEAD
     
     if status_filter:
         if status_filter == 'signed_in':
@@ -426,9 +548,58 @@ def admin_portal(request):
     ).values('hour').annotate(
         count=Count('id')
     ).order_by('-count').first()
+=======
+>>>>>>> bf9ce64d4a125b805fe0271a7c445a408f80a7e9
 
-    # Get active children (those with attendance records in the last 30 days)
-    thirty_days_ago = today - timedelta(days=30)
+    # Calculate average attendance rate for the selected date
+    all_children = Child.objects.filter(center=center)
+    total_children = all_children.count()
+    total_attendance = Attendance.objects.filter(
+        child__in=all_children,
+        sign_in__date=selected_date
+    ).count()
+    average_attendance_rate = (total_attendance / total_children * 100) if total_children > 0 else 0
+
+    # Calculate time-based statistics (using ExtractHour for better handling of timestamp data)
+    avg_sign_in_time = Attendance.objects.filter(
+        child__center=center,
+        sign_in__date=selected_date
+    ).annotate(hour=ExtractHour('sign_in')).aggregate(avg_sign_in=Avg('hour'))['avg_sign_in']
+    
+    avg_sign_out_time = Attendance.objects.filter(
+        child__center=center,
+        sign_out__date=selected_date
+    ).annotate(hour=ExtractHour('sign_out')).aggregate(avg_sign_out=Avg('hour'))['avg_sign_out']
+
+    # Get peak attendance hour
+    peak_hour = Attendance.objects.filter(
+        child__center=center,
+        sign_in__date=selected_date
+    ).annotate(hour=ExtractHour('sign_in')).values('hour').annotate(count=Count('id')).order_by('-count').first()
+    peak_hour = peak_hour.get('hour') if peak_hour else None
+
+    # Get attendance by time
+    attendance_by_time = Attendance.objects.filter(
+        child__center=center,
+        sign_in__date=selected_date
+    ).annotate(hour=ExtractHour('sign_in')).values('hour').annotate(count=Count('id')).order_by('hour')
+
+    # Get attendance status counts
+    attendance_types = ['Present', 'Absent']
+    attendance_counts = [
+        Attendance.objects.filter(
+            child__center=center,
+            sign_in__date=selected_date
+        ).count(),
+        Child.objects.filter(center=center).count() - total_attendance
+    ]
+
+    # Calculate date range for active children
+    thirty_days_ago = selected_date - timedelta(days=30)
+
+    # Handle PDF export
+    if request.GET.get('export_pdf') == '1':
+        return generate_pdf_report(attendances, 'daily', request)
     active_children = Child.objects.filter(
         center=center,
         attendance__sign_in__date__gte=thirty_days_ago
@@ -436,30 +607,44 @@ def admin_portal(request):
         attendance_count=Count('attendance')
     ).order_by('-attendance_count')[:10]  # Show top 10 most active children
 
-    context.update({
-        'active_children': active_children,
+    # Get currently signed in children
+    currently_signed_in = children.filter(
+        attendance__sign_in__date=today,
+        attendance__sign_in__lte=current_time
+    ).distinct().count()
+
+    # Calculate present and absent children
+    present_children = children.filter(
+        attendance__sign_in__date=selected_date
+    ).distinct().count()
+    absent_children = total_children - present_children
+    attendance_rate = (present_children / total_children * 100) if total_children > 0 else 0
+
+    # Build final context
+    context = {
+        'attendances': attendances,
+        'children': children,
+        'center': center,
+        'total_children': total_children,
+        'present_children': present_children,
+        'absent_children': absent_children,
+        'attendance_rate': attendance_rate,
+        'attendance_types': attendance_types,
+        'attendance_counts': attendance_counts,
+        'selected_date': selected_date,
+        'attendance_by_time': attendance_by_time,
         'currently_signed_in': currently_signed_in,
         'average_attendance_rate': average_attendance_rate,
         'avg_sign_in_time': avg_sign_in_time,
         'avg_sign_out_time': avg_sign_out_time,
-        'peak_hour': peak_hour
-    })
-    
-    # Get most active children (top 5)
-    active_children = Child.objects.annotate(
-        attendance_count=Count('attendance__id')
-    ).order_by('-attendance_count')[:5]
-    
-    context = {
-        'total_children': children.count(),
-        'total_parents': Parent.objects.count(),
-        'currently_signed_in': currently_signed_in,
-        'average_attendance_rate': round(average_attendance_rate, 1),
-        'avg_sign_in_time': avg_sign_in_time,
-        'avg_sign_out_time': avg_sign_out_time,
-        'peak_hour': peak_hour['hour'] if peak_hour else None,
+        'peak_hour': peak_hour,
         'active_children': active_children,
-        'children_data': children_data,
+        'total_parents': Parent.objects.count()
     }
-    
+
+    # Handle PDF export
+    if request.GET.get('export_pdf'):
+        export_type = request.GET.get('export_type', 'daily')  # Default to daily
+        return generate_pdf_report(attendances, export_type, request)
+
     return render(request, 'reports/admin_portal.html', context)

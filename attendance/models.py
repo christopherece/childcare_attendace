@@ -38,13 +38,8 @@ class Teacher(models.Model):
     rooms = models.ManyToManyField(Room, blank=True, related_name='teachers')
     position = models.CharField(max_length=100, default='Teacher')
     profile_picture = models.ImageField(upload_to='static/images/teachers/', blank=True, null=True)
-<<<<<<< HEAD
-    phone = models.CharField(max_length=20, blank=True, null=True, help_text='Optional contact phone number')
-    email = models.EmailField(blank=True, null=True, help_text='Optional contact email')
-=======
     phone = models.CharField(max_length=30, blank=True, null=True)
     email = models.EmailField(blank=True, null=True)
->>>>>>> 43d082a231eb1ceab520ac4dc239b5e90b63831d
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -79,18 +74,9 @@ class Child(models.Model):
     emergency_phone = models.CharField(max_length=30, default='')
     allergies = models.TextField(blank=True, null=True)
     medical_conditions = models.TextField(blank=True, null=True)
-<<<<<<< HEAD
-=======
     profile_picture = models.ImageField(upload_to='static/images/children/', blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    allergies = models.TextField(blank=True, null=True)
-    medical_conditions = models.TextField(blank=True, null=True)
-    emergency_contact = models.CharField(max_length=100)
-    emergency_phone = models.CharField(max_length=30)
->>>>>>> 43d082a231eb1ceab520ac4dc239b5e90b63831d
-    profile_picture = models.ImageField(upload_to='child_pix/', blank=True, null=True)
-    created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
     def __str__(self):

@@ -1,9 +1,97 @@
 {% extends 'attendance/base.html' %}
 {% load static %}
 
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // Initialize date picker
+    flatpickr("#datePicker", {
+        dateFormat: "Y-m-d",
+        defaultDate: "{{ selected_date|date:'Y-m-d' }}",
+        onChange: function(selectedDates, dateStr, instance) {
+            // Update URL with selected date
+            window.history.pushState({}, '', `/reports/admin-portal/?date=${dateStr}`);
+        }
+    });
+
+    // Initialize attendance by time chart
+    const attendanceTimeCtx = document.getElementById('attendanceTimeChart').getContext('2d');
+    new Chart(attendanceTimeCtx, {
+        type: 'bar',
+        data: {
+            labels: [{% for item in attendance_by_time %}'{{ item.hour }}:00'{% if not forloop.last %}, {% endif %}{% endfor %}],
+            datasets: [{
+                label: 'Number of Sign Ins',
+                data: [{% for item in attendance_by_time %}{{ item.count }}{% if not forloop.last %}, {% endif %}{% endfor %}],
+                backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                borderColor: 'rgba(54, 162, 235, 1)',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+
+    // Initialize attendance status chart
+    const attendanceStatusCtx = document.getElementById('attendanceStatusChart').getContext('2d');
+    new Chart(attendanceStatusCtx, {
+        type: 'doughnut',
+        data: {
+            labels: [{% for type in attendance_types %}'{{ type }}'{% if not forloop.last %}, {% endif %}{% endfor %}],
+            datasets: [{
+                data: [{% for count in attendance_counts %}{{ count }}{% if not forloop.last %}, {% endif %}{% endfor %}],
+                backgroundColor: [
+                    'rgba(54, 162, 235, 0.5)',
+                    'rgba(255, 99, 132, 0.5)'
+                ],
+                borderColor: [
+                    'rgba(54, 162, 235, 1)',
+                    'rgba(255, 99, 132, 1)'
+                ],
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'top',
+                },
+                tooltip: {
+                    enabled: true
+                }
+            }
+        }
+    });
+
+    function generatePDF() {
+        const datePicker = document.getElementById('datePicker');
+        const date = datePicker.value;
+        if (date) {
+            window.location.href = `/reports/admin-portal/?date=${date}&export_pdf=1`;
+        } else {
+            alert('Please select a date first!');
+        }
+    }
+</script>
+{% endblock %}
+
 {% block content %}
 <div class="dashboard-container">
-    <h2 class="mb-4">Admin Portal - Attendance Reports</h2>
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Admin Portal - Attendance Reports</h2>
+    </div>
     
     <!-- Current Attendance Stats -->
     <div class="row mb-4">
@@ -65,178 +153,57 @@
     <div class="container mt-4">
         <div class="row mb-4">
             <div class="col-12">
-                <div class="d-flex justify-content-between align-items-center">
-                    <h2>Admin Portal</h2>
-                    <div class="btn-group">
-                        <button type="button" class="btn btn-success dropdown-toggle" data-bs-toggle="dropdown">
-                            <i class="fas fa-file-csv"></i> Export Report
-                        </button>
-                        <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="?export_csv=1&export_type=daily">Daily Report</a></li>
-                            <li><a class="dropdown-item" href="?export_csv=1&export_type=weekly">Weekly Report</a></li>
-                            <li><a class="dropdown-item" href="?export_csv=1&export_type=monthly">Monthly Report</a></li>
-                        </ul>
+                <div class="row align-items-center">
+                    <div class="col-6">
+                        <h2>Admin Portal</h2>
                     </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Filters -->
-        <div class="row mb-4">
-            <div class="col-12">
-                <div class="card">
-                    <div class="card-body">
-                        <form method="GET" class="row g-3">
-                            <div class="col-md-4">
-                                <input type="text" 
-                                       class="form-control" 
-                                       name="search" 
-                                       placeholder="Search by child or parent name" 
-                                       value="{{ request.GET.search }}">
-                            </div>
-                            <div class="col-md-4">
-                                <select class="form-select" name="status">
-                                    <option value="">All Status</option>
-                                    <option value="signed_in" {% if request.GET.status == 'signed_in' %}selected{% endif %}>Signed In</option>
-                                    <option value="signed_out" {% if request.GET.status == 'signed_out' %}selected{% endif %}>Signed Out</option>
-                                </select>
-                            </div>
-                            <div class="col-md-4">
-                                <select class="form-select" name="room">
-                                    <option value="">All Rooms</option>
-                                    {% for room in teacher_rooms %}
-                                    <option value="{{ room.name }}" {% if room.name == selected_room %}selected{% endif %}>
-                                        {{ room.name }} ({{ room.age_range }})
-                                    </option>
-                                    {% endfor %}
-                                </select>
-                            </div>
-                            <div class="col-md-4">
-                                <button type="submit" class="btn btn-primary">Apply Filters</button>
-                                <a href="?" class="btn btn-secondary">Clear Filters</a>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="row">
-            <div class="col-12">
-                <div class="card">
-                    <div class="card-body">
-                        <h5 class="card-title">Current Attendance Status</h5>
-                        <div class="table-responsive">
-                            <table class="table">
-                                <thead>
-                                    <tr>
-                                        <th>Child Name</th>
-                                        <th>Parent Name</th>
-                                        <th>Attendance Rate</th>
-                                        <th>Sign In Time</th>
-                                        <th>Sign Out Time</th>
-                                        <th>Status</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for child_data in children_data %}
-                                    <tr>
-                                        <td><a href="{% url 'reports:child_details' child_data.child.id %}" class="text-decoration-none">{{ child_data.child.name }}</a></td>
-                                        <td>{{ child_data.child.parent.name }}</td>
-                                        <td>
-                                            <div class="d-flex align-items-center">
-                                                <div class="progress me-2" style="width: 150px; height: 20px;">
-                                                    <div class="progress-bar bg-success" 
-                                                         role="progressbar" 
-                                                         style="width: {{ child_data.attendance_rate }}" 
-                                                         aria-valuenow="{{ child_data.attendance_rate }}" 
-                                                         aria-valuemin="0" 
-                                                         aria-valuemax="100"></div>
-                                                </div>
-                                                <span class="fw-bold">{{ child_data.attendance_rate }}</span>
-                                            </div>
-                                        </td>
-                                        <td>
-                                            {% if child_data.attendance_records.first %}
-                                                {{ child_data.attendance_records.first.sign_in|date:"H:i" }}
-                                            {% endif %}
-                                        </td>
-                                        <td>
-                                            {% if child_data.attendance_records.last and child_data.attendance_records.last.sign_out %}
-                                                {{ child_data.attendance_records.last.sign_out|date:"H:i" }}
-                                            {% endif %}
-                                        </td>
-                                        <td>
-                                            {% if child_data.is_signed_in %}
-                                                <span class="badge bg-success">Signed In</span>
-                                                <small class="text-muted">Since {{ child_data.current_attendance_time }}</small>
-                                            {% elif child_data.has_attendance %}
-                                                <span class="badge bg-danger">Signed Out</span>
-                                            {% else %}
-                                                <span class="badge bg-warning">Not Signed In</span>
-                                            {% endif %}
-                                        </td>
-                                    </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
+                    <div class="col-6">
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="datePicker" name="date" value="{{ selected_date|date:'Y-m-d' }}" style="width: 200px;">
+                            <button class="btn btn-primary" type="button" onclick="generatePDF()">
+                                <i class="fas fa-file-pdf"></i> Generate Report
+                            </button>
                         </div>
-
-                        <!-- Pagination -->
-                        {% if children_data.has_other_pages %}
-                        <nav aria-label="Page navigation" class="mt-4">
-                            <ul class="pagination justify-content-center">
-                                {% if children.has_previous %}
-                                <li class="page-item">
-                                    <a class="page-link" href="?page=1{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}">
-                                        First
-                                    </a>
-                                </li>
-                                <li class="page-item">
-                                    <a class="page-link" href="?page={{ children_data.previous_page_number }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}">
-                                        Previous
-                                    </a>
-                                </li>
-                                {% endif %}
-
-                                {% for num in children_data.paginator.page_range %}
-                                <li class="page-item {% if children_data.number == num %}active{% endif %}">
-                                    <a class="page-link" href="?page={{ num }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}">
-                                        {{ num }}
-                                    </a>
-                                </li>
-                                {% endfor %}
-
-                                {% if children.has_next %}
-                                <li class="page-item">
-                                    <a class="page-link" href="?page={{ children_data.next_page_number }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}">
-                                        Next
-                                    </a>
-                                </li>
-                                <li class="page-item">
-                                    <a class="page-link" href="?page={{ children_data.paginator.num_pages }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}">
-                                        Last
-                                    </a>
-                                </li>
-                                {% endif %}
-                            </ul>
-                        </nav>
-                        {% endif %}
                     </div>
                 </div>
             </div>
         </div>
-
-       
     </div>
 
-    <!-- Most Active Children -->
+    <div class="row">
+        <div class="col-12">
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">Attendance by Time</h5>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="attendanceTimeChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">Attendance Status</h5>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="attendanceStatusChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="row">
         <div class="col-12">
             <div class="card mt-4">
                 <div class="card-body">
-                    <h5 class="card-title">Most Active Children (Last 30 Days)</h5>
+                    <h5 class="card-title">Attendance Records for {{ selected_date }}</h5>
                     <div class="table-responsive">
+                        <table class="table">
                         <table class="table table-hover">
                             <thead>
                                 <tr>

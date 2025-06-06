@@ -158,17 +158,8 @@
         <h2>{{ teacher.user.get_full_name }}</h2>
         <p class="text-muted">{{ teacher.position }}</p>
         <p class="text-muted">{{ teacher.center.name }}</p>
-<<<<<<< HEAD
-        {% if teacher.phone %}
-        <p class="text-muted"><i class="fas fa-phone"></i> {{ teacher.phone }}</p>
-        {% endif %}
-        {% if teacher.email %}
-        <p class="text-muted"><i class="fas fa-envelope"></i> {{ teacher.email }}</p>
-        {% endif %}
-=======
         <p class="text-muted">Phone: {{ teacher.phone }}</p>
         <p class="text-muted">Email: {{ teacher.email }}</p>
->>>>>>> 43d082a231eb1ceab520ac4dc239b5e90b63831d
         {% if teacher_rooms %}
         <p class="text-muted mt-2">
             <strong>Rooms:</strong>
@@ -255,7 +246,7 @@
             <div class="form-group">
                 <label for="{{ form.profile_picture.id_for_label }}">{{ form.profile_picture.label }}</label>
                 {{ form.profile_picture }}
-                <small class="form-text text-muted">Upload a professional photo</small>
+                <small class="form-text text-muted">Upload a photo</small>
             </div>
             <button type="submit" class="btn btn-primary">Save Changes</button>
         </form>
