@@ -43,7 +43,7 @@ class AttendanceAdmin(admin.ModelAdmin):
 
 @admin.register(Teacher)
 class TeacherAdmin(admin.ModelAdmin):
-    list_display = ('user', 'center', 'position', 'created_at')
+    list_display = ('user', 'center', 'position', 'phone', 'email', 'created_at')
     list_filter = ('center', 'position')
     search_fields = ('user__username', 'user__first_name', 'user__last_name', 'center__name', 'position')
     ordering = ('user__last_name', 'user__first_name')

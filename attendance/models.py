@@ -38,6 +38,8 @@ class Teacher(models.Model):
     rooms = models.ManyToManyField(Room, blank=True, related_name='teachers')
     position = models.CharField(max_length=100, default='Teacher')
     profile_picture = models.ImageField(upload_to='static/images/teachers/', blank=True, null=True)
+    phone = models.CharField(max_length=30, blank=True, null=True)
+    email = models.EmailField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     

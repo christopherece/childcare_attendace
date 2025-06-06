@@ -462,28 +462,21 @@ def profile(request):
         else:
             form = TeacherProfileForm(instance=teacher)
         
-        total_children = Child.objects.filter(
-            center=center,
-            room__in=teacher_rooms
-        ).count()
-        
-        # Get number of children signed in today from teacher's rooms
+        # Get attendance stats
         today = timezone.now().date()
-        signed_in_children = Attendance.objects.filter(
-            child__center=center,
-            child__room__in=teacher_rooms,
-            sign_in__date=today,
-            sign_out__isnull=True
-        ).order_by('child').distinct('child').count()
+        children = Child.objects.filter(center=center)
+        total_children = children.count()
+        signed_in_children = children.filter(
+            attendance__sign_in__date=today
+        ).distinct().count()
         
-        # Calculate average attendance rate for the teacher's rooms
+        # Calculate average attendance rate for last 30 days
         thirty_days_ago = today - timedelta(days=30)
         total_attendance_records = Attendance.objects.filter(
             child__center=center,
-            child__room__in=teacher_rooms,
             sign_in__date__gte=thirty_days_ago
         ).count()
-        total_possible_attendances = total_children * 30
+        total_possible_attendances = children.count() * 30
         average_attendance_rate = (total_attendance_records / total_possible_attendances) * 100 if total_possible_attendances > 0 else 0
         
         # Get children in each room
@@ -497,7 +490,7 @@ def profile(request):
             'center': center,
             'total_children': total_children,
             'signed_in_children': signed_in_children,
-            'average_attendance_rate': f'{average_attendance_rate:.1f}',
+            'average_attendance_rate': round(average_attendance_rate, 1),
             'teacher_rooms': teacher_rooms,
             'room_children': room_children,
             'form': form
