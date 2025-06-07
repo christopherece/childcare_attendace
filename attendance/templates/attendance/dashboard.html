@@ -708,6 +708,10 @@ document.addEventListener('DOMContentLoaded', function() {
                         // If signed in, proceed with sign out
                         actionInput.value = 'sign_out';
                         form.submit();
+                        // Redirect to dashboard after submission
+                        setTimeout(() => {
+                            window.location.href = '{% url "attendance:dashboard" %}';
+                        }, 1000);
                     })
                     .catch(error => {
                         console.error('Error checking sign-out status:', error);
