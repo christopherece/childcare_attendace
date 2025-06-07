@@ -87,18 +87,24 @@ def check_sign_in(request):
         # Check for existing sign-in today
         attendance = Attendance.objects.filter(
             child=child,
-            sign_in__date=today,
-            sign_out__isnull=True
+            sign_in__date=today
         ).first()
         
         if attendance:
-            # If there's an existing sign-in, return success with the time
-            return JsonResponse({
-                'already_signed_in': True,
-                'sign_in_time': attendance.sign_in.astimezone(NZ_TIMEZONE).strftime('%I:%M %p')
-            })
+            if attendance.sign_out:
+                # Child has already signed in and out today
+                return JsonResponse({
+                    'already_signed_in': False,
+                    'error': 'Child has already signed in and out today'
+                })
+            else:
+                # Child is currently signed in
+                return JsonResponse({
+                    'already_signed_in': True,
+                    'sign_in_time': attendance.sign_in.astimezone(NZ_TIMEZONE).strftime('%I:%M %p')
+                })
         
-        # If no sign-in exists, return success with can_sign_in=True
+        # No sign-in exists for today
         return JsonResponse({
             'already_signed_in': False
         })
@@ -221,7 +227,7 @@ def dashboard(request):
                             )
 
                             messages.success(request, f"{child.name} signed out successfully!")
-                            return redirect('reports:admin_portal')
+                            return redirect('attendance:dashboard')
                     except Exception as e:
                         messages.error(request, f"Error signing out {child.name}: {str(e)}")
                         return redirect('reports:admin_portal')

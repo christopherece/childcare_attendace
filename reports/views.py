@@ -99,23 +99,16 @@ def generate_pdf_report(attendances, report_type, request):
         # Get center name from request session or default
         center_name = request.session.get('center_name', 'Childcare Center')
         
-        # Get all children from the selected room
+        # Get room name if selected
+        room_name = ''
         if selected_room_id:
-            room = Room.objects.get(id=selected_room_id)
-            room_children = room.children.all()
-            
-            # Create attendance data for all children
-            attendance_data = []
-            for child in room_children:
-                attendance = attendances.filter(child=child).first()
-                attendance_data.append({
-                    'child': child,
-                    'status': 'Present' if attendance else 'Absent',
-                    'sign_in_time': attendance.sign_in.strftime('%I:%M %p') if attendance and attendance.sign_in else '-',
-                    'sign_out_time': attendance.sign_out.strftime('%I:%M %p') if attendance and attendance.sign_out else '-',
-                    'notes': attendance.notes if attendance else ''
-                })
-        else:
+            try:
+                room = Room.objects.get(id=selected_room_id)
+                room_name = room.name
+                # Filter attendances by room
+                attendances = attendances.filter(child__room_id=selected_room_id)
+            except Room.DoesNotExist:
+                pass
             # If no room selected, use the provided attendances
             attendance_data = attendances
         
@@ -225,13 +218,31 @@ def admin_portal(request):
             messages.error(request, 'No child selected for attendance report')
             return redirect('reports:admin_portal')
     
-    # Get selected date and room from query parameters
-    selected_date_str = request.GET.get('date')
-    selected_room_id = request.GET.get('room')
-    try:
-        selected_date = datetime.strptime(selected_date_str, '%Y-%m-%d').date() if selected_date_str else today
-    except (ValueError, TypeError):
-        selected_date = today
+    # Handle PDF export
+    if request.GET.get('export_pdf') == '1':
+        selected_date = request.GET.get('date')
+        selected_room_id = request.GET.get('room')
+        
+        # Get attendance records for PDF
+        pdf_attendances = Attendance.objects.filter(
+            child__center=center,
+            sign_in__date=selected_date
+        ).select_related('child')
+        
+        if selected_room_id:
+            pdf_attendances = pdf_attendances.filter(child__room_id=selected_room_id)
+            
+        # Get room name if selected
+        room_name = "All Rooms"
+        if selected_room_id:
+            try:
+                room = Room.objects.get(id=selected_room_id)
+                room_name = room.name
+            except Room.DoesNotExist:
+                pass
+        
+        # Generate PDF
+        return generate_attendance_pdf(pdf_attendances, selected_date, room_name, center_name)
     
     # Get room data and attendance statistics
     rooms = Room.objects.filter(center=center).prefetch_related(
@@ -243,17 +254,34 @@ def admin_portal(request):
     room_stats = []
     current_time = timezone.now()
     
+    # Get today's date using timezone-aware datetime
+    today = timezone.now().date()
+    
     for room in rooms:
         # Get all children in this room
-        children = room.children.all()
+        children = Child.objects.filter(room=room)
         total_children = children.count()
         
-        # Count signed in children
+        # Count signed in children and build attendance list
         signed_in_children = 0
+        room_attendance = []
+        
         for child in children:
-            attendance = Attendance.get_daily_attendance(child, selected_date)
+            # Get today's attendance for this child
+            attendance = Attendance.objects.filter(
+                child=child,
+                sign_in__date=today
+            ).first()
+            
             if attendance:
                 signed_in_children += 1
+            
+            room_attendance.append({
+                'child': child,
+                'status': 'Present' if attendance else 'Absent',
+                'sign_in_time': attendance.sign_in.strftime('%I:%M %p') if attendance else '-',
+                'parent': child.parent.name if child.parent else ''
+            })
         
         # Calculate attendance percentage
         attendance_percentage = (signed_in_children / total_children * 100) if total_children > 0 else 0
@@ -263,10 +291,26 @@ def admin_portal(request):
             'room': room,
             'total_children': total_children,
             'signed_in_children': signed_in_children,
-            'attendance_percentage': attendance_percentage
+            'attendance_percentage': attendance_percentage,
+            'attendance': room_attendance
         })
     
-    # Get attendance records for statistics
+    # Calculate overall statistics
+    total_children = sum(stat['total_children'] for stat in room_stats)
+    total_signed_in = sum(stat['signed_in_children'] for stat in room_stats)
+    
+    # Get attendance records for display (separate from PDF data)
+    display_attendances = []
+    
+    # Get selected date and room from query parameters
+    selected_date_str = request.GET.get('date')
+    selected_room_id = request.GET.get('room')
+    try:
+        selected_date = datetime.strptime(selected_date_str, '%Y-%m-%d').date() if selected_date_str else today
+    except (ValueError, TypeError):
+        selected_date = today
+    
+    # Get attendance records for display
     attendance_records = Attendance.objects.filter(
         child__center=center,
         sign_in__date=selected_date
@@ -276,9 +320,14 @@ def admin_portal(request):
     if selected_room_id:
         attendance_records = attendance_records.filter(child__room_id=selected_room_id)
     
-    # Calculate overall statistics
-    total_children = sum(stat['total_children'] for stat in room_stats)
-    total_signed_in = sum(stat['signed_in_children'] for stat in room_stats)
+    # Format attendance data for display
+    for attendance in attendance_records:
+        display_attendances.append({
+            'child': attendance.child,
+            'status': 'Present',
+            'sign_in_time': attendance.sign_in.strftime('%I:%M %p'),
+            'sign_out_time': attendance.sign_out.strftime('%I:%M %p') if attendance.sign_out else '-'
+        })
     
     # Calculate average attendance time
     avg_attendance_time = None

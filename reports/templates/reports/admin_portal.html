@@ -249,11 +249,11 @@
                                 </div>
                             </div>
                             <div class="list-group">
-                                {% for attendance in display_attendances %}
+                                {% for attendance in room.attendance %}
                                     <a href="{% url 'reports:child_details' attendance.child.id %}" class="list-group-item list-group-item-action">
                                         <div class="d-flex w-100 justify-content-between">
                                             <h5 class="mb-1">{{ attendance.child.name }}</h5>
-                                            <small class="text-muted">{{ attendance.child.parent.name }}</small>
+                                            <small class="text-muted">{{ attendance.parent }}</small>
                                         </div>
                                         <p class="mb-1">Status: {{ attendance.status }}</p>
                                         <small class="text-muted">Sign In: {{ attendance.sign_in_time|default:"-" }}</small>

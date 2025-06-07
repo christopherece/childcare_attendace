@@ -52,6 +52,8 @@ def generate_attendance_pdf(attendances, selected_date, room_name, center_name="
 
         # Prepare table data
         data = [['Child Name', 'Sign In', 'Sign Out', 'Status', 'Notes']]
+        
+        # Add attendance data
         for a in attendances:
             data.append([
                 a['child'].name,
@@ -59,7 +61,7 @@ def generate_attendance_pdf(attendances, selected_date, room_name, center_name="
                 a['sign_out_time'],
                 a['status'],
                 a['notes'] if a['notes'] else '-'
-            ])
+            ])  # Close the list properly
 
         # Table with adjusted column widths (notes column narrower)
         table = Table(data, colWidths=[120, 80, 80, 60, 120])

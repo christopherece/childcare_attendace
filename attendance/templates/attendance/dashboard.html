@@ -855,9 +855,31 @@ document.addEventListener('DOMContentLoaded', function() {
                         // If signed in, proceed with sign out
                         actionInput.value = 'sign_out';
                         form.submit();
-                        // Redirect to dashboard after submission
+                        // Show success message
                         setTimeout(() => {
-                            window.location.href = '{% url "attendance:dashboard" %}';
+                            // Create success message
+                            const messageDiv = document.createElement('div');
+                            messageDiv.className = 'alert alert-success alert-dismissible fade show';
+                            messageDiv.innerHTML = `
+                                <strong>Success!</strong> Child successfully signed out.
+                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                            `;
+                            
+                            // Add message to the page
+                            const messagesContainer = document.getElementById('messages');
+                            if (messagesContainer) {
+                                messagesContainer.appendChild(messageDiv);
+                                
+                                // Remove message after 5 seconds
+                                setTimeout(() => {
+                                    messageDiv.remove();
+                                }, 5000);
+                            }
+                            
+                            // Update UI
+                            document.getElementById('attendanceStatus').textContent = 'Not signed in';
+                            document.getElementById('signInButton').style.display = 'block';
+                            document.getElementById('signOutButton').style.display = 'none';
                         }, 1000);
                     })
                     .catch(error => {
@@ -875,9 +897,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 fetch(`{% url 'attendance:check_sign_in' %}?child_id=${selectedChildId.value}`)
                     .then(response => response.json())
                     .then(data => {
-                        if (data.already_signed_in) {
-                            alert(`Child is already signed in today at ${data.sign_in_time}`);
+                        if (data.error) {
+                            alert(data.error);
                             return;
+                        }
+                        if (data.already_signed_in) {
                         }
                         
                         // If not signed in, proceed with submission
