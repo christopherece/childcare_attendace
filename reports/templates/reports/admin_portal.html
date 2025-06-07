@@ -10,17 +10,38 @@
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-    // Initialize date picker
+    // Initialize date picker and room select
     flatpickr("#datePicker", {
         dateFormat: "Y-m-d",
         defaultDate: "{{ date|date:'Y-m-d' }}",
         onChange: function(selectedDates, dateStr, instance) {
-            // Update URL with selected date
-            window.history.pushState({}, '', `/reports/admin-portal/?date=${dateStr}`);
-            // Refresh the page with the new date
-            window.location.href = `/reports/admin-portal/?date=${dateStr}`;
+            updateURL();
         }
     });
+
+    // Handle room selection
+    document.getElementById('roomSelect').addEventListener('change', function() {
+        updateURL();
+    });
+
+    function updateURL() {
+        const datePicker = document.getElementById('datePicker');
+        const date = datePicker.value;
+        const roomSelect = document.getElementById('roomSelect');
+        const room = roomSelect.value;
+        
+        const params = new URLSearchParams();
+        if (date) {
+            params.append('date', date);
+        }
+        if (room) {
+            params.append('room', room);
+        }
+        
+        const newUrl = `/reports/admin-portal/?${params.toString()}`;
+        window.history.pushState({}, '', newUrl);
+        window.location.href = newUrl;
+    }
 
     // Initialize attendance by time chart
     const attendanceTimeCtx = document.getElementById('attendanceTimeChart').getContext('2d');
@@ -81,8 +102,18 @@
     function generatePDF() {
         const datePicker = document.getElementById('datePicker');
         const date = datePicker.value;
+        const roomSelect = document.getElementById('roomSelect');
+        const room = roomSelect.value;
+        
         if (date) {
-            window.location.href = `/reports/admin-portal/?date=${date}&export_pdf=1`;
+            const params = new URLSearchParams();
+            params.append('date', date);
+            if (room) {
+                params.append('room', room);
+            }
+            params.append('export_pdf', '1');
+            
+            window.location.href = `/reports/admin-portal/?${params.toString()}`;
         } else {
             alert('Please select a date first!');
         }
@@ -105,6 +136,14 @@
                             <div class="input-group" style="width: 150px;">
                                 <input type="text" class="form-control flatpickr-input" id="datePicker" name="date" value="{{ selected_date|date:'Y-m-d' }}" readonly="readonly">
                             </div>
+                            <div class="input-group" style="width: 150px;">
+                                <select id="roomSelect" class="form-select">
+                                    <option value="">All Rooms</option>
+                                    {% for room in rooms %}
+                                        <option value="{{ room.id }}" {% if request.GET.room == room.id|stringformat:"s" %}selected{% endif %}>{{ room.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
                             <button class="btn btn-pink" type="button" onclick="generatePDF()">
                                 <i class="fas fa-file-pdf"></i> Generate Report
                             </button>
@@ -112,62 +151,52 @@
                     </div>
                 </div>
                 <div class="card-body">
-                    <!-- Room Cards -->
-                    <div class="row">
-                        {% for room in rooms %}
-                            <div class="col-12 mb-4">
-                                <div class="card border-primary">
-                                    <div class="card-header bg-pink text-white">
-                                        <h5 class="mb-0">{{ room.name }}</h5>
-                                    </div>
-                                    <!-- Student List -->
-                                    <div class="card-footer bg-light-pink border-top-0">
-                                        <div class="table-responsive">
-                                            <table class="table table-hover mb-0">
-                                                <thead>
-                                                    <tr>
-                                                        <th>Name</th>
-                                                        <th>Attendance</th>
-                                                        <th>Sign In</th>
-                                                        <th>Sign Out</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {% for child in room.children.all %}
-                                                        <tr>
-                                                            <td>
-                                                                <a href="{% url 'reports:child_details' child.id %}" class="text-decoration-none">
-                                                                    {{ child.name }}
-                                                                </a>
-                                                            </td>
-                                                            <td>
-                                                                {% if child.is_signed_in %}
-                                                                    <span class="badge bg-success">Signed In</span>
-                                                                {% else %}
-                                                                    <span class="badge bg-secondary">Not Signed In</span>
-                                                                {% endif %}
-                                                            </td>
-                                                            <td>
-                                                                {{ child.sign_in_time|default:"-" }}
-                                                            </td>
-                                                            <td>
-                                                                {% with attendance=child|get_today_attendance:date %}
-                                                                    {% if attendance %}
-                                                                        {{ attendance.sign_out|time:'h:i A' }}
-                                                                    {% endif %}
-                                                                {% endwith %}
-                                                            </td>
-                                                        </tr>
-                                                    {% endfor %}
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    </div>
-                                </div>
+                    <!-- Attendance List -->
+                    <div class="card border-primary">
+                        <div class="card-header bg-pink text-white">
+                            <h5 class="mb-0">Attendance List</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-hover mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th>Name</th>
+                                            <th>Parent</th>
+                                            <th>Status</th>
+                                            <th>Sign In</th>
+                                            <th>Sign Out</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for attendance in display_attendances %}
+                                            <tr>
+                                                <td>
+                                                    <a href="{% url 'reports:child_details' attendance.child.id %}" class="text-decoration-none">
+                                                        {{ attendance.child.name }}
+                                                    </a>
+                                                </td>
+                                                <td>
+                                                    {{ attendance.child.parent.name }}
+                                                </td>
+                                                <td>
+                                                    <span class="badge {% if attendance.status == 'Present' %}bg-success{% else %}bg-secondary{% endif %}">
+                                                        {{ attendance.status }}
+                                                    </span>
+                                                </td>
+                                                <td>
+                                                    {{ attendance.sign_in_time|default:"-" }}
+                                                </td>
+                                                <td>
+                                                    {{ attendance.sign_out_time|default:"-" }}
+                                                </td>
+                                            </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
                             </div>
-                        {% endfor %}
+                        </div>
                     </div>
-
                 </div>
             </div>
         </div>
@@ -220,24 +249,15 @@
                                 </div>
                             </div>
                             <div class="list-group">
-                                {% for child in room.children.all %}
-                                <div class="list-group-item">
-                                    <div class="d-flex justify-content-between align-items-center mb-2">
-                                        <div>
-                                            <h6 class="mb-0">{{ child.name }}</h6>
-                                            <small class="text-muted">{{ child.parent.name }}</small>
+                                {% for attendance in display_attendances %}
+                                    <a href="{% url 'reports:child_details' attendance.child.id %}" class="list-group-item list-group-item-action">
+                                        <div class="d-flex w-100 justify-content-between">
+                                            <h5 class="mb-1">{{ attendance.child.name }}</h5>
+                                            <small class="text-muted">{{ attendance.child.parent.name }}</small>
                                         </div>
-                                        <span class="badge {% if child.is_signed_in %}bg-success{% else %}bg-secondary{% endif %}">
-                                            {% if child.is_signed_in %}Signed In{% else %}Not Signed In{% endif %}
-                                        </span>
-                                    </div>
-                                    {% if child.is_signed_in %}
-                                    <div class="mt-2">
-                                        <small class="text-muted">Sign In Time:</small>
-                                        <p class="mb-0">{{ child.sign_in_time }}</p>
-                                    </div>
-                                    {% endif %}
-                                </div>
+                                        <p class="mb-1">Status: {{ attendance.status }}</p>
+                                        <small class="text-muted">Sign In: {{ attendance.sign_in_time|default:"-" }}</small>
+                                    </a>
                                 {% endfor %}
                             </div>
                         </div>
