@@ -15,56 +15,61 @@ def generate_attendance_pdf(attendances, selected_date, room_name, center_name="
         p = canvas.Canvas(response, pagesize=A4)
         page_width, page_height = A4
 
-        # Margins and layout
-        left_margin = 60
-        right_margin = page_width - 60
-        top_margin = page_height - 50
-        bottom_margin = 50
+        # Margins
+        left_margin = 30
+        right_margin = page_width - 30
+        top_margin = page_height - 40
+        bottom_margin = 40
 
-        # === LOGO ON LEFT SIDE ===
+        # === LOGO ===
         image_url = "https://topitsolutions.co.nz/static/images/logos/it_logo2.png"
         try:
             img_response = requests.get(image_url)
             if img_response.status_code == 200:
                 logo_data = BytesIO(img_response.content)
-                logo_data.seek(0)  # Reset pointer to start
-                p.drawImage(logo_data, left_margin, top_margin - 50, width=100, height=40, preserveAspectRatio=True, mask='auto')
+                logo_data.seek(0)
+                p.drawImage(logo_data, left_margin, top_margin - 45, width=80, height=35, preserveAspectRatio=True, mask='auto')
         except Exception as e:
             print("Failed to load logo:", e)
 
-        # Header text shifted right to avoid overlapping the logo
-        header_x = left_margin + 120  # 100 width + 20 padding
+        # === HEADER TEXT ===
         p.setFont("Helvetica-Bold", 20)
         p.setFillColorRGB(0, 0, 0)
-        p.drawString(header_x, top_margin - 10, center_name)
+        p.drawCentredString(page_width / 2, top_margin - 10, center_name)
 
         p.setFont("Helvetica-Bold", 16)
-        p.drawString(header_x, top_margin - 35, "Attendance Report")
+        p.drawCentredString(page_width / 2, top_margin - 35, "Attendance Report")
 
         p.setFont("Helvetica", 12)
         p.setFillColorRGB(0.2, 0.2, 0.2)
-        p.drawString(header_x, top_margin - 55, f"Report Date: {selected_date if selected_date else 'Today'} | Room: {room_name}")
+        p.drawCentredString(
+            page_width / 2,
+            top_margin - 55,
+            f"Report Date: {selected_date if selected_date else 'Today'} | Room: {room_name}"
+        )
 
-        # Horizontal line below header
+        # === HORIZONTAL LINE ===
         p.setStrokeColorRGB(0, 0, 0)
         p.setLineWidth(1)
         p.line(left_margin, top_margin - 70, right_margin, top_margin - 70)
 
-        # Prepare table data
-        data = [['Child Name', 'Sign In', 'Sign Out', 'Status', 'Notes']]
-        
-        # Add attendance data
+        # === TABLE DATA ===
+        data = [['Child Name', 'Parent', 'Sign In', 'Sign Out', 'Notes']]
         for a in attendances:
+            child = a.get('child', {})
             data.append([
-                a['child'].name,
-                a['sign_in_time'],
-                a['sign_out_time'],
-                a['status'],
-                a['notes'] if a['notes'] else '-'
-            ])  # Close the list properly
+                child.get('name', 'N/A'),
+                child.get('parent', {}).get('name', 'No Parent'),
+                a.get('sign_in_time', '-'),
+                a.get('sign_out_time', '-'),
+                a.get('notes', '-')
+            ])
 
-        # Table with adjusted column widths (notes column narrower)
-        table = Table(data, colWidths=[120, 80, 80, 60, 120])
+        # Calculate evenly distributed column widths
+        usable_width = page_width - left_margin - (page_width - right_margin)
+        col_width = usable_width / 5
+
+        table = Table(data, colWidths=[col_width] * 5)
         table.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2c3e50')),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
@@ -80,18 +85,18 @@ def generate_attendance_pdf(attendances, selected_date, room_name, center_name="
             ('INNERGRID', (0, 0), (-1, -1), 0.25, colors.grey),
             ('BOX', (0, 0), (-1, -1), 0.5, colors.grey),
 
-            ('LEFTPADDING', (0, 0), (-1, -1), 6),
-            ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+            ('LEFTPADDING', (0, 0), (-1, -1), 4),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 4),
         ]))
 
-        # Position table below header (closer to header)
+        # Table position
         table_x = left_margin
-        table_y = top_margin - 280
+        table_y = top_margin - 260
 
         table.wrapOn(p, 0, 0)
         table.drawOn(p, table_x, table_y)
 
-        # Footer with page number and website
+        # === FOOTER ===
         footer_y = bottom_margin + 10
         p.setFont("Helvetica", 10)
         p.setFillColorRGB(0.33, 0.33, 0.33)

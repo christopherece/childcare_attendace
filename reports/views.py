@@ -108,21 +108,29 @@ def generate_pdf_report(attendances, report_type, request):
                 # Filter attendances by room
                 attendances = attendances.filter(child__room_id=selected_room_id)
             except Room.DoesNotExist:
-                pass
-            # If no room selected, use the provided attendances
-            attendance_data = attendances
-        
-        # Get room name based on selected room ID
-        room_name = "All Rooms"
-        if selected_room_id:
-            room = Room.objects.get(id=selected_room_id)
-            room_name = room.name
+                return HttpResponseBadRequest("Selected room not found")
             
+        # If no room selected, use "All Rooms"
+        if not selected_room_id:
+            room_name = "All Rooms"
+            
+        # Validate date format if provided
+        if selected_date:
+            try:
+                datetime.strptime(selected_date, '%Y-%m-%d')
+            except ValueError:
+                return HttpResponseBadRequest("Invalid date format. Please use YYYY-MM-DD")
+        
         # Generate PDF using the new generator
-        return generate_attendance_pdf(attendance_data, selected_date, room_name, center_name)
+        try:
+            pdf = generate_attendance_pdf(attendances, selected_date, room_name, center_name)
+            return pdf
+        except Exception as e:
+            print(f"Error generating PDF: {str(e)}")
+            return HttpResponseBadRequest(f"Error generating PDF: {str(e)}")
     except Exception as e:
-        print(f"Error generating PDF: {str(e)}")
-        return HttpResponseBadRequest("Error generating PDF report")
+        print(f"Unexpected error: {str(e)}")
+        return HttpResponseBadRequest("An unexpected error occurred while generating the PDF")
 
 
 def child_attendance_report(request, child_id):
@@ -241,8 +249,33 @@ def admin_portal(request):
             except Room.DoesNotExist:
                 pass
         
+        # Get all children in the room
+        children = Child.objects.filter(room__center=center)
+        if selected_room_id:
+            children = children.filter(room_id=selected_room_id)
+        
+        # Format attendance data for PDF - include all children
+        pdf_data = []
+        for child in children:
+            # Get attendance record for this child
+            attendance = pdf_attendances.filter(child=child).first()
+            
+            pdf_data.append({
+                'child': {
+                    'name': child.name,
+                    'id': child.id,
+                    'parent': {
+                        'name': child.parent.name if child.parent else None
+                    }
+                },
+                'sign_in_time': attendance.sign_in.strftime('%I:%M %p') if attendance else '-',
+                'sign_out_time': attendance.sign_out.strftime('%I:%M %p') if attendance and attendance.sign_out else '-',
+                'status': 'Present' if attendance and attendance.sign_out is None else 'Absent',
+                'notes': attendance.notes if attendance and attendance.notes else ''
+            })
+        
         # Generate PDF
-        return generate_attendance_pdf(pdf_attendances, selected_date, room_name, center_name)
+        return generate_attendance_pdf(pdf_data, selected_date, room_name, center_name)
     
     # Get room data and attendance statistics
     rooms = Room.objects.filter(center=center).prefetch_related(
@@ -266,6 +299,10 @@ def admin_portal(request):
         signed_in_children = 0
         room_attendance = []
         
+        # Get all children in this room
+        children = Child.objects.filter(room=room).select_related('parent')
+        total_children = children.count()
+        
         for child in children:
             # Get today's attendance for this child
             attendance = Attendance.objects.filter(
@@ -275,12 +312,17 @@ def admin_portal(request):
             
             if attendance:
                 signed_in_children += 1
+                status = 'Present'
+                sign_in_time = attendance.sign_in.strftime('%I:%M %p')
+            else:
+                status = 'Absent'
+                sign_in_time = '-'  # Show dash for absent children
             
             room_attendance.append({
                 'child': child,
-                'status': 'Present' if attendance else 'Absent',
-                'sign_in_time': attendance.sign_in.strftime('%I:%M %p') if attendance else '-',
-                'parent': child.parent.name if child.parent else ''
+                'status': status,
+                'sign_in_time': sign_in_time,
+                'parent': child.parent.name if child.parent else 'No Parent'
             })
         
         # Calculate attendance percentage
