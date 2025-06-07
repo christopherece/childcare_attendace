@@ -215,10 +215,50 @@
         border: 1px solid #dee2e6;
         border-radius: 0.375rem;
         box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,0.075);
-        max-height: 300px;
-        overflow-y: auto;
         display: none;
         z-index: 9999;
+        width: 100%;
+    }
+
+    .search-result-item {
+        display: flex;
+        align-items: center;
+        padding: 0.75rem;
+        cursor: pointer;
+    }
+
+    .list-group-item {
+        border: none;
+        padding: 0.75rem 1rem;
+        cursor: pointer;
+    }
+
+    .search-result-thumbnail {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        margin-right: 1rem;
+        object-fit: cover;
+        background-color: #f8f9fa;
+        border: 2px solid #fff;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .search-result-content {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .search-result-name {
+        font-weight: 600;
+        color: #212529;
+        margin-bottom: 0.25rem;
+    }
+
+    .search-result-info {
+        color: #6c757d;
+        font-size: 0.875rem;
+        margin-bottom: 0;
     }
 
     #searchResults.show {
@@ -357,6 +397,31 @@
                             </button>
                         </div>
                         <div id="searchResults" class="list-group"></div>
+
+                        <script>
+                        // Update search results display with thumbnail
+                        function displaySearchResults(results) {
+                            const searchResults = document.getElementById('searchResults');
+                            if (!searchResults) return;
+
+                            searchResults.innerHTML = results.map(result => `
+                                <div class="search-result-item" onclick="selectChild('${result.id}', '${escapeHtml(result.name)}', '${escapeHtml(result.parentName)}', '${escapeHtml(result.centerName)}', '${result.profilePicture}')">
+                                    <img src="${result.profilePicture || '{% static "images/child_pix/user-default.png" %}'}" 
+                                         alt="${escapeHtml(result.name)}" 
+                                         class="search-result-thumbnail">
+                                    <div class="search-result-content">
+                                        <h6 class="search-result-name">${escapeHtml(result.name)}</h6>
+                                        <p class="search-result-info">
+                                            ${escapeHtml(result.parentName)}<br>
+                                            ${escapeHtml(result.centerName)}
+                                        </p>
+                                    </div>
+                                </div>
+                            `).join('');
+
+                            searchResults.classList.add('show');
+                        }
+                        </script>
                     </div>
                     
                     <script>
@@ -433,7 +498,7 @@
                         <div class="mb-3">
                             <div class="d-flex align-items-center">
                                 <div class="me-3">
-                                    <img id="profilePicture" src="{% static 'images/child_pix/user-default.png' %}" alt="Child Profile" class="rounded-circle" style="width: 100px; height: 100px; object-fit: cover;">
+                                    <img id="profilePicture" src="/static/images/child_pix/user-default.png" alt="Child Profile" class="rounded-circle" style="width: 100px; height: 100px; object-fit: cover; border: 2px solid #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
                                 </div>
                                 <div>
                                     <label class="form-label">Child</label>
@@ -564,68 +629,42 @@ const observer = new MutationObserver(function(mutations) {
 observer.observe(document.body, { childList: true, subtree: true });
 
 // Global function for selecting a child
-function selectChild(id, childName, parentName, centerName) {
+function selectChild(id, childName, parentName, centerName, profile_picture) {
+    // Set form values immediately
+    document.getElementById('selectedChildId').value = id;
+    document.getElementById('childName').value = childName;
+    document.getElementById('parentName').value = parentName;
+    document.getElementById('centerName').value = centerName;
+    const profilePictureElement = document.getElementById('profilePicture');
+    if (profilePictureElement) {
+        // If no profile picture URL is provided, use the default image
+        const defaultImage = '/static/images/child_pix/user-default.png';
+        profilePictureElement.src = profile_picture || defaultImage;
+    }
+    
+    // Clear search input and hide results
+    const searchInput = document.getElementById('searchInput');
+    if (searchInput) {
+        searchInput.value = '';
+    }
+    const searchResults = document.getElementById('searchResults');
+    if (searchResults) {
+        searchResults.classList.remove('show');
+    }
+    
     // Check if child is already signed in for today
     fetch(`{% url 'attendance:check_sign_in' %}?child_id=${id}`)
         .then(response => response.json())
         .then(data => {
-            // Clear any existing selected child
-            const selectedChildId = document.getElementById('selectedChildId');
-            if (selectedChildId) {
-                selectedChildId.value = id;
-            }
-            
-            // Update form fields
-            const childNameInput = document.getElementById('childName');
-            const parentNameInput = document.getElementById('parentName');
-            const centerNameInput = document.getElementById('centerName');
-            
-            if (childNameInput) childNameInput.value = childName;
-            if (parentNameInput) parentNameInput.value = parentName;
-            if (centerNameInput) centerNameInput.value = centerName;
-
-            // Show success message
-            const messageDiv = document.createElement('div');
-            messageDiv.className = 'alert alert-success alert-dismissible fade show';
-            messageDiv.innerHTML = `
-                <strong>${childName}</strong> selected successfully.
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            `;
-            
-            const messagesContainer = document.getElementById('messages');
-            if (messagesContainer) {
-                messagesContainer.innerHTML = '';
-                messagesContainer.appendChild(messageDiv);
-            }
-
-            // Clear search input and results
-            const searchInput = document.getElementById('searchInput');
-            if (searchInput) {
-                searchInput.value = '';
-                const searchResults = document.getElementById('searchResults');
-                if (searchResults) {
-                    searchResults.innerHTML = '';
-                }
-            }
-
-            // Disable/enable sign in button based on check_sign_in response
-            const signInButton = document.getElementById('signInButton');
-            const signOutButton = document.getElementById('signOutButton');
-            
-            if (signInButton && signOutButton) {
-                if (data.already_signed_in) {
-                    // If already signed in
-                    signInButton.disabled = true;
-                    signInButton.title = `Already signed in at ${data.sign_in_time}`;
-                    signOutButton.disabled = false;
-                    signOutButton.title = '';
-                } else {
-                    // If not signed in
-                    signInButton.disabled = false;
-                    signInButton.title = '';
-                    signOutButton.disabled = false;  // Keep sign out button enabled
-                    signOutButton.title = 'Child must be signed in first';
-                }
+            // Update status
+            if (data.already_signed_in) {
+                document.getElementById('attendanceStatus').textContent = `Signed in at ${data.sign_in_time}`;
+                document.getElementById('signInButton').style.display = 'none';
+                document.getElementById('signOutButton').style.display = 'block';
+            } else {
+                document.getElementById('attendanceStatus').textContent = 'Not signed in';
+                document.getElementById('signInButton').style.display = 'block';
+                document.getElementById('signOutButton').style.display = 'none';
             }
         })
         .catch(error => {
@@ -640,19 +679,16 @@ document.addEventListener('DOMContentLoaded', function() {
     const searchInput = document.getElementById('searchInput');
     const searchResults = document.getElementById('searchResults');
     const form = document.getElementById('attendanceForm');
-    const loadingIndicator = document.createElement('div');
-    loadingIndicator.className = 'text-center mb-3';
-    loadingIndicator.innerHTML = '<div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div>';
+    const selectedChildId = document.getElementById('selectedChildId');
+    const actionInput = document.getElementById('attendanceAction');
+    const notesInput = document.getElementById('attendanceNotes');
+    const signInButton = document.getElementById('signInButton');
+    const signOutButton = document.getElementById('signOutButton');
 
-    // Handle form submission
+    // Form submission handler
     form.addEventListener('submit', function(e) {
-        const actionInput = document.getElementById('attendanceAction');
         const submitButton = e.submitter;
-        const selectedChildId = document.getElementById('selectedChildId');
-        
-        // Prevent submission if no child is selected
         if (!selectedChildId.value) {
-            e.preventDefault();
             alert('Please select a child first');
             return;
         }
@@ -755,68 +791,51 @@ document.addEventListener('DOMContentLoaded', function() {
                     
                     item.innerHTML = `
                         <div class="d-flex align-items-center">
+                            <div class="me-3">
+                                <img src="${child.profile_picture}" 
+                                     alt="${escapedName}" 
+                                     class="search-result-thumbnail">
+                            </div>
                             <div>
-                                <h6 class="mb-0">${escapedName}</h6>
+                                <h6 class="mb-1">${escapedName}</h6>
                                 <small class="text-muted">${escapedParent}</small>
-                                <small class="text-muted d-block">${escapedCenter}</small>
+                                <small class="text-muted">${escapedCenter}</small>
                             </div>
                         </div>
                     `;
                     
-                    item.addEventListener('click', () => {
-                        selectChild(child.id, escapedName, escapedParent, escapedCenter);
-                    });
-                    
+                    item.onclick = () => selectChild(child.id, escapedName, escapedParent, escapedCenter, child.profile_picture);
                     searchResults.appendChild(item);
                 });
                 
                 searchResults.classList.add('show');
             } catch (error) {
-                console.error('Search error:', error);
-                searchResults.innerHTML = '<div class="list-group-item text-danger">Error searching for children</div>';
+                console.error('Error:', error);
+                searchResults.innerHTML = '<div class="list-group-item text-danger">Error loading search results</div>';
             }
         } else {
-            searchResults.innerHTML = '';
+            // Hide results if search term is too short
             searchResults.classList.remove('show');
         }
     });
 
-    // Hide results when clicking outside
+    // Handle click outside of search results
     document.addEventListener('click', function(e) {
-        if (!e.target.closest('.search-container')) {
+        if (!searchResults.contains(e.target) && !searchInput.contains(e.target)) {
             searchResults.classList.remove('show');
         }
     });
 
-    // Show results when hovering over the search container
-    const searchContainer = document.querySelector('.search-container');
-    const resultsElement = document.getElementById('searchResults');
-    
-    if (searchContainer && resultsElement) {
-        const container = searchContainer.closest('.card');
-        
-        // Add hover events to both container and results
-        const elementsToWatch = [container, resultsElement];
-        
-        elementsToWatch.forEach(element => {
-            element.addEventListener('mouseenter', () => {
-                if (resultsElement.innerHTML.trim()) {
-                    resultsElement.classList.add('show');
-                }
-            });
-        });
-        
-        // Add mouseleave to both elements
-        elementsToWatch.forEach(element => {
-            element.addEventListener('mouseleave', (e) => {
-                // Check if the mouse is moving to/from the other element
-                const relatedTarget = e.relatedTarget;
-                if (!relatedTarget || 
-                    (!elementsToWatch.includes(relatedTarget) && 
-                     !resultsElement.contains(relatedTarget))) {
-                    resultsElement.classList.remove('show');
-                }
-            });
+    // Handle clearing search
+    const clearButton = document.getElementById('clearSearch');
+    if (clearButton) {
+        clearButton.addEventListener('click', function() {
+            searchInput.value = '';
+            const parentNameInput = document.getElementById('parentName');
+            if (parentNameInput) {
+                parentNameInput.value = '';
+            }
+            searchResults.classList.remove('show');
         });
     }
 
@@ -828,28 +847,17 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Adjust card height when search results are shown/hidden
+    // Remove positioning code that was causing layout issues
     const rightCard = document.getElementById('right_card');
     if (rightCard) {
         searchResults.addEventListener('transitionend', () => {
             if (searchResults.classList.contains('show')) {
-                // Adjust positioning using absolute positioning
-                searchResults.style.position = 'absolute';
-                searchResults.style.top = '100%';
-                searchResults.style.left = '0';
-                searchResults.style.width = '100%';
-                searchResults.style.maxHeight = '300px';
-                searchResults.style.overflowY = 'auto';
                 searchResults.style.borderRadius = '0 0 12px 12px';
                 searchResults.style.zIndex = '1000';
-            } else {
-                // Reset positioning when results are hidden
-                searchResults.style.position = 'static';
-                searchResults.style.maxHeight = 'none';
-                searchResults.style.overflowY = 'visible';
             }
         });
     }
 });
+</script>
 </script>
 {% endblock %}

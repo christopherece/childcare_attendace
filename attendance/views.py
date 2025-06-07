@@ -177,10 +177,10 @@ def dashboard(request):
                             )
 
                             messages.success(request, f"{child.name} signed in successfully!")
-                            return redirect('reports:admin_portal')
+                            return redirect('attendance:dashboard')
                     except Exception as e:
                         messages.error(request, f"Error signing in {child.name}: {str(e)}")
-                        return redirect('reports:admin_portal')
+                        return redirect('attendance:dashboard')
 
                 elif action == 'sign_out':
                     records = Attendance.get_daily_attendance(child, today)
@@ -188,11 +188,11 @@ def dashboard(request):
 
                     if not latest_record:
                         messages.error(request, f"{child.name} is not signed in today.")
-                        return redirect('reports:admin_portal')
+                        return redirect('attendance:dashboard')
 
                     if latest_record.sign_out:
                         messages.error(request, f"{child.name} has already been signed out today.")
-                        return redirect('reports:admin_portal')
+                        return redirect('attendance:dashboard')
 
                     try:
                         with transaction.atomic():
@@ -328,7 +328,8 @@ def search_children(request):
                 'parent': child.parent.name if child.parent else 'No Parent',
                 'center': child.center.name if child.center else 'Unknown Center',
                 'status': status,
-                'last_action': last_action
+                'last_action': last_action,
+                'profile_picture': child.profile_picture.url if child.profile_picture else '/static/images/child_pix/user-default.png'
             })
         
         return JsonResponse(data, safe=False)
@@ -601,11 +602,8 @@ def sign_out(request):
                 message=f"{child.name} has been signed out from {child.center.name} at {attendance.sign_out.strftime('%I:%M %p')}"
             )
 
-            return JsonResponse({
-                'success': True,
-                'sign_out_time': attendance.sign_out.strftime('%I:%M %p'),
-                'status': 'Signed Out'
-            })
+            # Redirect to dashboard after successful sign-out
+            return redirect('attendance:dashboard')
         
         return JsonResponse({'error': 'Invalid request method'}, status=400)
     except Exception as e:
