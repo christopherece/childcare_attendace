@@ -1,0 +1,111 @@
+.bg-pink {
+    background-color: #ff69b4 !important;
+}
+
+.text-pink {
+    color: #ff69b4 !important;
+}
+
+.border-pink {
+    border-color: #ff69b4 !important;
+}
+
+.bg-light-pink {
+    background-color: #fff0f5 !important;
+}
+
+.card {
+    border: 2px solid #ff69b4;
+    box-shadow: 0 2px 4px rgba(255, 105, 180, 0.1);
+}
+
+.card-header.bg-pink {
+    background-color: #ff69b4 !important;
+    color: white !important;
+}
+
+.card-footer.bg-light-pink {
+    background-color: #fff0f5 !important;
+}
+
+.table-hover tbody tr:hover {
+    background-color: #fff0f5;
+}
+
+.badge.bg-success {
+    background-color: #ff69b4;
+    color: white;
+}
+
+.badge.bg-secondary {
+    background-color: #ff69b4;
+    color: white;
+}
+
+.navbar.bg-pink {
+    background: linear-gradient(135deg, #ff69b4 0%, #fff0f5 100%) !important;
+    box-shadow: 0 2px 10px rgba(255, 105, 180, 0.2);
+}
+
+.navbar-brand {
+    color: white !important;
+    font-weight: 700;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+}
+
+.navbar-nav .nav-link {
+    color: white !important;
+    font-weight: 500;
+    padding: 0.5rem 1rem !important;
+    transition: all 0.3s ease;
+    background-color: transparent !important;
+}
+
+.navbar-nav .nav-link:hover {
+    color: white !important;
+    background-color: rgba(255, 255, 255, 0.1) !important;
+    border-radius: 5px;
+    transform: translateY(-2px);
+}
+
+.navbar-nav .nav-link.active {
+    color: white !important;
+    background-color: rgba(255, 255, 255, 0.15) !important;
+    border-radius: 5px;
+}
+
+.nav-link {
+    color: white !important;
+    background-color: transparent !important;
+}
+
+.nav-link:hover {
+    color: white !important;
+}
+
+.alert-pink {
+    background-color: #fff0f5;
+    border-color: #ff69b4;
+    color: #ff69b4;
+}
+
+.btn-pink {
+    background-color: #ff69b4;
+    border-color: #ff69b4;
+    color: white;
+}
+
+.btn-pink:hover {
+    background-color: #ff1493;
+    border-color: #ff1493;
+    color: white;
+}
+
+.modal-header {
+    background-color: #ff69b4;
+    color: white;
+}
+
+.modal-header .close {
+    color: white;
+}
