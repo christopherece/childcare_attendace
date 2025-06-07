@@ -29,15 +29,52 @@
                         <thead class="table-light">
                             <tr>
                                 <th>Child Name</th>
-                                <th>Parent Name</th>    
+                                <th>Parent Name</th>
                                 <th>Center</th>
                                 <th>Status</th>
-                                <th>Last Action</th>
+                                <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
-                        <!-- Table rows will be populated by JavaScript -->
-                    </tbody>
+                            {% for data in attendance_data %}
+                            <tr>
+                                <td>{{ data.child.name }}</td>
+                                <td>{{ data.child.parent.name }}</td>
+                                <td>{{ data.child.center.name }}</td>
+                                <td>
+                                    {% if data.records %}
+                                        <span class="badge bg-success">Signed In</span>
+                                        <br>
+                                        <small class="text-muted">
+                                            {% for record in data.records %}
+                                                {% if forloop.first %}
+                                                    Sign In: {{ record.sign_in }}
+                                                    {% if record.sign_out %}
+                                                        <br>Sign Out: {{ record.sign_out }}
+                                                    {% endif %}
+                                                {% endif %}
+                                            {% endfor %}
+                                        </small>
+                                    {% else %}
+                                        <span class="badge bg-secondary">Not Signed In</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if data.records %}
+                                        <button class="btn btn-sm btn-danger sign-out-btn" 
+                                                data-child-id="{{ data.child.id }}">
+                                            Sign Out
+                                        </button>
+                                    {% else %}
+                                        <button class="btn btn-sm btn-success sign-in-btn" 
+                                                data-child-id="{{ data.child.id }}">
+                                            Sign In
+                                        </button>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
                     </table>
                 </div>
             </div>
@@ -58,289 +95,7 @@
 </div>
 {% endblock %}
 
-{% block extra_js %}
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const childFilter = document.getElementById('childFilter');
-    const dateFilter = document.getElementById('dateFilter');
-    const tableBody = document.querySelector('tbody');
-    const loadingSpinner = document.createElement('div');
-    loadingSpinner.className = 'loading-spinner';
-    loadingSpinner.innerHTML = '<div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div>';
-    
-    // Initialize search input
-    const childFilter = document.getElementById('childFilter');
-    const clearSearch = document.getElementById('clearSearch');
-    const roomFilter = document.getElementById('roomFilter');
-    const tableBody = document.querySelector('tbody');
-    const loadingSpinner = document.createElement('div');
-    loadingSpinner.className = 'loading-spinner';
-    loadingSpinner.innerHTML = '<div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div>';
-    
-    // Debounce function for search
-    function debounce(func, wait) {
-        let timeout;
-        return function executedFunction(...args) {
-            const later = () => {
-                clearTimeout(timeout);
-                func(...args);
-            };
-            clearTimeout(timeout);
-            timeout = setTimeout(later, wait);
-        };
-    }
-
-    // Debounced search function
-    const debouncedSearch = debounce(fetchChildren, 300);
-
-    // Clear search function
-    function clearSearchInput() {
-        childFilter.value = '';
-        debouncedSearch();
-    }
-
-    // Function to populate room filter options
-    async function populateRoomFilter() {
-        try {
-            const response = await fetch('/attendance/rooms/');
-            const rooms = await response.json();
-            
-            // Clear existing options except the default "All Rooms"
-            while (roomFilter.lastChild) {
-                if (roomFilter.lastChild.value !== '') {
-                    roomFilter.removeChild(roomFilter.lastChild);
-                }
-            }
-            
-            // Add room options
-            rooms.forEach(room => {
-                const option = document.createElement('option');
-                option.value = room.id;
-                option.textContent = room.name;
-                roomFilter.appendChild(option);
-            });
-        } catch (error) {
-            console.error('Error loading rooms:', error);
-        }
-    }
-
-    // Initial data fetch and room population
-    Promise.all([fetchChildren(), populateRoomFilter()]);
-
-    // Add event listeners
-    childFilter.addEventListener('input', debouncedSearch);
-    clearSearch.addEventListener('click', clearSearchInput);
-    roomFilter.addEventListener('change', debouncedSearch);
-    dateFilter.addEventListener('change', fetchChildren);
-    
-    // Function to fetch children data
-    async function fetchChildren() {
-        const query = childFilter.value.trim();
-        const date = dateFilter.value;
-        const room = roomFilter.value;
-        
-        // Show loading spinner
-        tableBody.innerHTML = '';
-        tableBody.appendChild(loadingSpinner);
-        
-        try {
-            const response = await fetch(`/attendance/search/?q=${encodeURIComponent(query)}&date=${date}&room=${room}`);
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            
-            const data = await response.json();
-            
-            if (!Array.isArray(data)) {
-                throw new Error('Invalid response format');
-            }
-            
-            // Clear table
-            tableBody.innerHTML = '';
-            
-            // Add rows
-            data.forEach(child => {
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td>
-                        <a href="#" class="select-child" data-child-id="${child.id}">
-                            ${child.name}
-                        </a>
-                    </td>
-                    <td>${child.parent}</td>
-                    <td>${child.center}</td>
-                    <td>
-                        ${child.status === 'Signed In' 
-                            ? `<span class="badge bg-success">Signed In</span>
-                              <button class="btn btn-sm btn-danger sign-out-btn" data-child-id="${child.id}">
-                                  Sign Out
-                              </button>`
-                            : child.status === 'Signed Out' 
-                            ? '<span class="badge bg-warning">Signed Out</span>'
-                            : `<span class="badge bg-secondary">Not Signed In</span>
-                              <button class="btn btn-sm btn-success sign-in-btn" data-child-id="${child.id}">
-                                  Sign In
-                              </button>`
-                        }
-                    </td>
-                    <td>${child.last_action || ''}</td>
-                `;
-                tableBody.appendChild(row);
-            });
-        } catch (error) {
-            handleError(error);
-        }
-    }
-
-    // Add loading spinner to the page
-    document.body.appendChild(loadingSpinner);
-    loadingSpinner.style.display = 'none';
-
-    childFilter.addEventListener('input', async function() {
-        const searchTerm = this.value.trim();
-        if (searchTerm.length < 2) return;
-
-        loadingSpinner.style.display = 'block';
-        
-        try {
-            const response = await fetch(`/attendance/search/?q=${encodeURIComponent(searchTerm)}`);
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            const data = await response.json();
-            
-            // Update table with fresh data
-            tableBody.innerHTML = '';
-            
-            if (Array.isArray(data)) {
-                data.forEach(child => {
-                    const row = document.createElement('tr');
-                    row.innerHTML = `
-                        <td><a href="javascript:void(0)" class="select-child" data-child-id="${child.id}">${child.name}</a></td>
-                        <td>${child.parent}</td>
-                        <td>${child.center}</td>
-                        <td>
-                        ${child.status === 'Signed In' 
-                            ? `<span class="badge bg-success">Signed In</span>
-                              <button class="btn btn-sm btn-warning ms-2 sign-out-btn" data-child-id="${child.id}">
-                                  <i class="fas fa-sign-out-alt"></i> Sign Out
-                              </button>`
-                            : child.status === 'Signed Out' 
-                            ? '<span class="badge bg-warning">Signed Out</span>'
-                            : `<span class="badge bg-danger">Not Signed In</span>
-                              <button class="btn btn-sm btn-success ms-2 sign-in-btn" data-child-id="${child.id}">
-                                  <i class="fas fa-sign-in-alt"></i> Sign In
-                              </button>`
-                        }
-                    </td>
-                        <td>${child.last_action || '-'}</td>
-                    `;
-                    tableBody.appendChild(row);
-                });
-            } else {
-                throw new Error('Unexpected response format from server');
-            }
-        } catch (error) {
-            console.error('Error searching:', error.message);
-            const errorRow = document.createElement('tr');
-            errorRow.innerHTML = `
-                <td colspan="5" class="text-danger">
-                    <i class="fas fa-exclamation-triangle"></i>
-                    Search failed: ${error.message}
-                </td>
-            `;
-            tableBody.innerHTML = '';
-            tableBody.appendChild(errorRow);
-        } finally {
-            loadingSpinner.style.display = 'none';
-        }
-    });
-
-    // Initial load of data
-    childFilter.dispatchEvent(new Event('input'));
-
-    // Add click handlers
-    tableBody.addEventListener('click', function(e) {
-        const target = e.target;
-        
-        // Handle child selection
-        if (target.classList.contains('select-child')) {
-            const childId = target.dataset.childId;
-            if (!childId) {
-                console.error('No child ID found in selected row');
-                return;
-            }
-            selectChild(childId);
-        }
-        
-        // Handle sign-out
-        if (target.classList.contains('sign-out-btn')) {
-            const childId = target.dataset.childId;
-            if (!childId) {
-                console.error('No child ID found for sign-out');
-                return;
-            }
-            handleSignOut(childId);
-        }
-        
-        // Handle sign-in
-        if (target.classList.contains('sign-in-btn')) {
-            const childId = target.dataset.childId;
-            if (!childId) {
-                console.error('No child ID found for sign-in');
-                return;
-            }
-            handleSignIn(childId);
-        }
-    });
-
-    // Function to handle sign-in
-    async function handleSignIn(childId) {
-        if (!confirm('Are you sure you want to sign in this child?')) {
-            return;
-        }
-
-        const loadingSpinner = document.querySelector('.loading-spinner');
-        loadingSpinner.style.display = 'block';
-
-        try {
-            const response = await fetch(`/attendance/sign-in/`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': getCookie('csrftoken')
-                },
-                body: JSON.stringify({ child_id: childId })
-            });
-
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
-            const data = await response.json();
-            
-            if (data.success) {
-                // Update the row in place
-                const row = document.querySelector(`[data-child-id="${childId}"]`).closest('tr');
-                const statusCell = row.cells[3];
-                statusCell.innerHTML = `
-                    <span class="badge bg-success">Signed In</span>
-                    <button class="btn btn-sm btn-warning ms-2 sign-out-btn" data-child-id="${childId}">
-                        <i class="fas fa-sign-out-alt"></i> Sign Out
-                    </button>
-                `;
-                
-                // Update the last action cell
-                const lastActionCell = row.cells[4];
-                lastActionCell.textContent = data.sign_in_time;
-            } else {
-                throw new Error(data.error || 'Failed to sign in child');
-            }
-        } catch (error) {
-            console.error('Error signing in:', error);
-            handleError(`Error signing in: ${error.message}`);
-        } finally {
-            loadingSpinner.style.display = 'none';
+{% block extra_js %}{% endblock %}
         }
     }
 

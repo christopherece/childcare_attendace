@@ -1,0 +1,86 @@
+.bg-pink {
+    background-color: #ff69b4 !important;
+}
+
+.text-pink {
+    color: #ff69b4 !important;
+}
+
+.border-pink {
+    border-color: #ff69b4 !important;
+}
+
+.bg-light-pink {
+    background-color: #fff0f5 !important;
+}
+
+.card {
+    border: 2px solid #ff69b4;
+    box-shadow: 0 2px 4px rgba(255, 105, 180, 0.1);
+}
+
+.card-header.bg-pink {
+    background-color: #ff69b4 !important;
+    color: white !important;
+}
+
+.card-footer.bg-light-pink {
+    background-color: #fff0f5 !important;
+}
+
+.table-hover tbody tr:hover {
+    background-color: #fff0f5;
+}
+
+.badge.bg-success {
+    background-color: #ff69b4;
+    color: white;
+}
+
+.badge.bg-secondary {
+    background-color: #ff69b4;
+    color: white;
+}
+
+.navbar.bg-pink {
+    background-color: #ff69b4 !important;
+}
+
+.navbar-brand {
+    color: white !important;
+}
+
+.nav-link {
+    color: white !important;
+}
+
+.nav-link:hover {
+    color: #fff0f5 !important;
+}
+
+.alert-pink {
+    background-color: #fff0f5;
+    border-color: #ff69b4;
+    color: #ff69b4;
+}
+
+.btn-pink {
+    background-color: #ff69b4;
+    border-color: #ff69b4;
+    color: white;
+}
+
+.btn-pink:hover {
+    background-color: #ff1493;
+    border-color: #ff1493;
+    color: white;
+}
+
+.modal-header {
+    background-color: #ff69b4;
+    color: white;
+}
+
+.modal-header .close {
+    color: white;
+}

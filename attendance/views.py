@@ -27,6 +27,17 @@ import json
 from django.utils import timezone
 from django.conf import settings
 from django.contrib.auth import authenticate, login, logout
+
+@login_required
+def logout_view(request):
+    """Handle user logout"""
+    if request.method in ['GET', 'POST']:
+        logout(request)
+        messages.success(request, 'You have been logged out successfully.')
+        return redirect('attendance:login')
+    return redirect('attendance:login')
+
+# Original imports continue below...
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.core.mail import send_mail
 from django.template.loader import render_to_string
@@ -126,12 +137,6 @@ def dashboard(request):
                                 sign_in__date=today,
                                 sign_out__isnull=True
                             ).first()
-                            
-                            if existing:
-                                # If child is already signed in, show the existing sign-in time
-                                messages.error(request, f"{child.name} is already signed in today at {existing.sign_in.astimezone(NZ_TIMEZONE).strftime('%I:%M %p')}")
-                                return redirect('attendance:dashboard')
-
                             # Create new attendance record
                             attendance = Attendance.objects.create(
                                 child=child,
@@ -172,10 +177,10 @@ def dashboard(request):
                             )
 
                             messages.success(request, f"{child.name} signed in successfully!")
-                            return redirect('attendance:dashboard')
+                            return redirect('reports:admin_portal')
                     except Exception as e:
                         messages.error(request, f"Error signing in {child.name}: {str(e)}")
-                        return redirect('attendance:dashboard')
+                        return redirect('reports:admin_portal')
 
                 elif action == 'sign_out':
                     records = Attendance.get_daily_attendance(child, today)
@@ -183,11 +188,11 @@ def dashboard(request):
 
                     if not latest_record:
                         messages.error(request, f"{child.name} is not signed in today.")
-                        return redirect('attendance:dashboard')
+                        return redirect('reports:admin_portal')
 
                     if latest_record.sign_out:
                         messages.error(request, f"{child.name} has already been signed out today.")
-                        return redirect('attendance:dashboard')
+                        return redirect('reports:admin_portal')
 
                     try:
                         with transaction.atomic():
@@ -216,17 +221,17 @@ def dashboard(request):
                             )
 
                             messages.success(request, f"{child.name} signed out successfully!")
-                            return redirect('attendance:dashboard')
+                            return redirect('reports:admin_portal')
                     except Exception as e:
                         messages.error(request, f"Error signing out {child.name}: {str(e)}")
-                        return redirect('attendance:dashboard')
+                        return redirect('reports:admin_portal')
 
             except Child.DoesNotExist:
                 messages.error(request, "Child not found.")
-                return redirect('attendance:dashboard')
+                return redirect('reports:admin_portal')
             except Exception as e:
                 messages.error(request, f"Error processing request: {str(e)}")
-                return redirect('attendance:dashboard')
+                return redirect('reports:admin_portal')
 
         # For GET requests, show dashboard
         for child in children:
@@ -420,8 +425,30 @@ def attendance_records(request):
     try:
         teacher = get_object_or_404(Teacher, user=request.user)
         center = teacher.center
-        teacher_rooms = teacher.rooms.all()
-        children = Child.objects.filter(center=center, room__in=teacher_rooms).order_by('name')
+        
+        # If no rooms are assigned, get all rooms from the teacher's center
+        if not teacher.rooms.exists():
+            teacher_rooms = Room.objects.filter(center=center)
+        else:
+            teacher_rooms = teacher.rooms.all()
+        
+        # Debug logging
+        print(f"Teacher found: {teacher.user.username}")
+        print(f"Center: {center.name if center else 'None'}")
+        print(f"Rooms assigned: {', '.join(room.name for room in teacher_rooms)}")
+        
+        # Get all children from the center
+        children = Child.objects.filter(center=center).order_by('name')
+        print(f"Children found: {children.count()}")
+        for child in children:
+            print(f"Child: {child.name}, Room: {child.room.name if child.room else 'None'}")
+        
+        # Get attendance records for today for all children in the center
+        todays_attendances = Attendance.objects.filter(
+            child__center=center,
+            sign_in__date=today
+        ).order_by('child_id', 'sign_in')
+        print(f"Attendance records found: {todays_attendances.count()}")
     except Teacher.DoesNotExist:
         messages.error(request, 'Teacher profile not found')
         return redirect('attendance:profile')

@@ -178,10 +178,15 @@
         border: 2px solid #e2e8f0;
     }
 
+    .search-container .form-control:focus {
+        z-index: 2;
+    }
+
     /* Tablet-specific search adjustments */
     @media (max-width: 992px) {
         .search-container {
             padding: 1.75rem;
+            margin-bottom: 2rem;
         }
 
         .search-container input {
@@ -189,71 +194,56 @@
             font-size: 1.25rem;
         }
     }
-        border: 1px solid #e2e8f0;
-        border-radius: 6px;
         font-size: 0.95rem;
         width: 100%;
         transition: all 0.2s ease;
     }
 
-    .search-container input:focus {
-        border-color: #4ecdc4;
-        box-shadow: 0 0 0 0.25rem rgba(78,205,196,0.25);
+    .search-container {
+        position: relative;
+        margin-bottom: 1rem;
     }
 
-    /* Search results */
-    .list-group {
-        border-radius: 8px;
-        overflow: hidden;
-        margin-top: 1rem;
+    .search-container .form-control:focus {
+        z-index: 2;
+    }
+
+    #searchResults {
+        position: relative;
+        margin-top: 0.5rem;
+        background: white;
+        border: 1px solid #dee2e6;
+        border-radius: 0.375rem;
+        box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,0.075);
         max-height: 300px;
         overflow-y: auto;
+        display: none;
+        z-index: 9999;
+    }
+
+    #searchResults.show {
+        display: block;
     }
 
     .list-group-item {
         border: none;
-        padding: 0.75rem;
+        padding: 0.75rem 1rem;
         transition: all 0.2s ease;
         cursor: pointer;
     }
 
     .list-group-item:hover {
-        background-color: #f3f4f6;
+        background-color: #f8f9fa;
     }
 
-    .clickable-search-item {
-        cursor: pointer;
-        padding: 0.5rem;
+    /* Search container layout */
+    .search-container {
+        position: relative;
+        margin-bottom: 2rem;
     }
 
-    .clickable-search-item:hover {
-        background-color: #f3f4f6;
-    }
-
-    .list-group-item img {
-        width: 40px;
-        height: 40px;
-        object-fit: cover;
-        border-radius: 50%;
-    }
-
-    /* Form styles */
-    .form-label {
-        font-weight: 500;
-        color: #475569;
-        margin-bottom: 1rem;
-        font-size: 1.1rem;
-        line-height: 1.5;
-    }
-
-    .form-control {
-        border: 2px solid #e2e8f0;
-        border-radius: 10px;
-        padding: 1rem 1.5rem;
-        font-size: 1.1rem;
-        transition: all 0.3s ease;
-        width: 100%;
-        min-height: 48px;
+    .search-container .form-control:focus {
+        z-index: 2;
     }
 
     .form-control:focus {
@@ -356,17 +346,17 @@
         <div class="col-md-6" id="left_card">
             <div class="card card-lg">
                 <div class="card-header">
-                    <h3 class="card-title mb-0">Childcare Attendance</h3>
+                    <h3 class="card-title mb-0">Search for Child</h3>
                 </div>
                 <div class="card-body">
-                    <div class="search-container position-relative">
-                        <div class="input-group">
+                    <div class="search-container">
+                        <div class="input-group mb-3">
                             <input type="text" class="form-control" id="searchInput" placeholder="Search by child or parent name...">
                             <button class="btn btn-outline-secondary" type="button" id="clearSearch">
                                 <i class="fas fa-times"></i>
                             </button>
                         </div>
-                        <div id="searchResults" class="list-group list-group-flush position-absolute w-100 mt-2 rounded shadow-sm" style="max-height: 300px; overflow-y: auto; z-index: 1000;"></div>
+                        <div id="searchResults" class="list-group"></div>
                     </div>
                     
                     <script>
@@ -724,7 +714,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // Search functionality
-    searchInput.addEventListener('input', function() {
+    searchInput.addEventListener('input', async function() {
         const searchTerm = this.value.trim();
         
         // Clear the parent input box when search starts
@@ -736,32 +726,27 @@ document.addEventListener('DOMContentLoaded', function() {
         // Only search if term is at least 2 characters
         if (searchTerm.length >= 2) {
             searchResults.innerHTML = '';
-            searchResults.appendChild(loadingIndicator);
             
-            fetch(`{% url 'attendance:search_children' %}?q=${encodeURIComponent(searchTerm)}`, {
-                method: 'GET'
-            })
-            .then(response => {
+            try {
+                const response = await fetch(`{% url 'attendance:search_children' %}?q=${encodeURIComponent(searchTerm)}`);
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
-                return response.json();
-            })
-            .then(data => {
-                searchResults.innerHTML = '';
+                
+                const data = await response.json();
                 
                 if (!Array.isArray(data)) {
                     throw new Error('Invalid response format');
                 }
                 
                 if (data.length === 0) {
-                    searchResults.innerHTML = '<div class="text-center text-muted">No results found</div>';
+                    searchResults.innerHTML = '<div class="list-group-item text-muted">No results found</div>';
                     return;
                 }
                 
                 data.forEach(child => {
                     const item = document.createElement('div');
-                    item.className = 'list-group-item list-group-item-action py-2';
+                    item.className = 'list-group-item clickable-search-item';
                     
                     // Escape HTML content
                     const escapedName = escapeHtml(child.name);
@@ -769,11 +754,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     const escapedCenter = escapeHtml(child.center);
                     
                     item.innerHTML = `
-                        <div class="d-flex align-items-center clickable-search-item" 
-                             data-child-id="${child.id}" 
-                             data-child-name="${escapedName}" 
-                             data-parent-name="${escapedParent}" 
-                             data-center-name="${escapedCenter}">
+                        <div class="d-flex align-items-center">
                             <div>
                                 <h6 class="mb-0">${escapedName}</h6>
                                 <small class="text-muted">${escapedParent}</small>
@@ -781,51 +762,63 @@ document.addEventListener('DOMContentLoaded', function() {
                             </div>
                         </div>
                     `;
+                    
+                    item.addEventListener('click', () => {
+                        selectChild(child.id, escapedName, escapedParent, escapedCenter);
+                    });
+                    
                     searchResults.appendChild(item);
                 });
-            })
-            .catch(error => {
-                console.error('Search error details:', {
-                    message: error.message,
-                    stack: error.stack,
-                    url: window.location.href
-                });
                 
-                let errorMessage = 'Error searching for children';
-                if (error.message) {
-                    errorMessage += ': ' + error.message;
-                }
-                
-                searchResults.innerHTML = `
-                    <div class="alert alert-danger">
-                        <h6 class="alert-heading">Search Error</h6>
-                        <p>${errorMessage}</p>
-                        <p class="mb-0">Please try again or contact support if the problem persists.</p>
-                    </div>
-                `;
-            })
-            .finally(() => {
-                // Remove loading indicator
-                if (searchResults.contains(loadingIndicator)) {
-                    searchResults.removeChild(loadingIndicator);
-                }
-            });
+                searchResults.classList.add('show');
+            } catch (error) {
+                console.error('Search error:', error);
+                searchResults.innerHTML = '<div class="list-group-item text-danger">Error searching for children</div>';
+            }
         } else {
             searchResults.innerHTML = '';
+            searchResults.classList.remove('show');
         }
     });
 
-    // Add click handler for search results
-    searchResults.addEventListener('click', function(e) {
-        const item = e.target.closest('.clickable-search-item');
-        if (item) {
-            const childId = item.dataset.childId;
-            const childName = item.dataset.childName;
-            const parentName = item.dataset.parentName;
-            const centerName = item.dataset.centerName;
-            selectChild(childId, childName, parentName, centerName);
+    // Hide results when clicking outside
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.search-container')) {
+            searchResults.classList.remove('show');
         }
     });
+
+    // Show results when hovering over the search container
+    const searchContainer = document.querySelector('.search-container');
+    const resultsElement = document.getElementById('searchResults');
+    
+    if (searchContainer && resultsElement) {
+        const container = searchContainer.closest('.card');
+        
+        // Add hover events to both container and results
+        const elementsToWatch = [container, resultsElement];
+        
+        elementsToWatch.forEach(element => {
+            element.addEventListener('mouseenter', () => {
+                if (resultsElement.innerHTML.trim()) {
+                    resultsElement.classList.add('show');
+                }
+            });
+        });
+        
+        // Add mouseleave to both elements
+        elementsToWatch.forEach(element => {
+            element.addEventListener('mouseleave', (e) => {
+                // Check if the mouse is moving to/from the other element
+                const relatedTarget = e.relatedTarget;
+                if (!relatedTarget || 
+                    (!elementsToWatch.includes(relatedTarget) && 
+                     !resultsElement.contains(relatedTarget))) {
+                    resultsElement.classList.remove('show');
+                }
+            });
+        });
+    }
 
     // Add keyboard navigation
     searchInput.addEventListener('keydown', function(e) {
@@ -834,6 +827,29 @@ document.addEventListener('DOMContentLoaded', function() {
             searchInput.dispatchEvent(new Event('input'));
         }
     });
+
+    // Adjust card height when search results are shown/hidden
+    const rightCard = document.getElementById('right_card');
+    if (rightCard) {
+        searchResults.addEventListener('transitionend', () => {
+            if (searchResults.classList.contains('show')) {
+                // Adjust positioning using absolute positioning
+                searchResults.style.position = 'absolute';
+                searchResults.style.top = '100%';
+                searchResults.style.left = '0';
+                searchResults.style.width = '100%';
+                searchResults.style.maxHeight = '300px';
+                searchResults.style.overflowY = 'auto';
+                searchResults.style.borderRadius = '0 0 12px 12px';
+                searchResults.style.zIndex = '1000';
+            } else {
+                // Reset positioning when results are hidden
+                searchResults.style.position = 'static';
+                searchResults.style.maxHeight = 'none';
+                searchResults.style.overflowY = 'visible';
+            }
+        });
+    }
 });
 </script>
 {% endblock %}

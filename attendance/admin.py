@@ -25,14 +25,8 @@ class ChildAdmin(admin.ModelAdmin):
 @admin.register(Attendance)
 class AttendanceAdmin(admin.ModelAdmin):
     list_display = ('child', 'parent', 'center', 'sign_in', 'sign_out', 'notes')
-    list_filter = (
-        'sign_in', 
-        'child__parent', 
-        'center'
-    )
     search_fields = ('child__name', 'parent__name', 'center__name', 'notes')
     ordering = ('-sign_in',)
-    actions = ['export_as_pdf']
 
     def get_queryset(self, request):
         queryset = super().get_queryset(request)

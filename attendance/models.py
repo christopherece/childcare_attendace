@@ -112,11 +112,6 @@ class Attendance(models.Model):
     class Meta:
         ordering = ['-sign_in', '-sign_out']
         constraints = [
-            # Ensure only one sign-in per child per day
-            models.UniqueConstraint(
-                fields=['child', 'sign_in__date'],
-                name='unique_sign_in_per_day'
-            ),
             # Ensure active sign-ins are unique
             models.UniqueConstraint(
                 fields=['child', 'sign_in'],

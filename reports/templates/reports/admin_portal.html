@@ -1,5 +1,6 @@
 {% extends 'attendance/base.html' %}
 {% load static %}
+{% load attendance_tags %}
 
 {% block extra_css %}
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
@@ -12,10 +13,12 @@
     // Initialize date picker
     flatpickr("#datePicker", {
         dateFormat: "Y-m-d",
-        defaultDate: "{{ selected_date|date:'Y-m-d' }}",
+        defaultDate: "{{ date|date:'Y-m-d' }}",
         onChange: function(selectedDates, dateStr, instance) {
             // Update URL with selected date
             window.history.pushState({}, '', `/reports/admin-portal/?date=${dateStr}`);
+            // Refresh the page with the new date
+            window.location.href = `/reports/admin-portal/?date=${dateStr}`;
         }
     });
 
@@ -91,60 +94,78 @@
 <div class="dashboard-container">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2>Admin Portal - Attendance Reports</h2>
+        <div class="input-group">
+            <input type="text" class="form-control flatpickr-input" id="datePicker" name="date" value="{{ selected_date|date:'Y-m-d' }}" style="width: 200px;" readonly="readonly">
+            <button class="btn btn-pink" type="button" onclick="generatePDF()">
+                <i class="fas fa-file-pdf"></i> Generate Report
+            </button>
+        </div>
     </div>
     
-    <!-- Current Attendance Stats -->
+    <!-- Center Attendance Summary -->
     <div class="row mb-4">
-        <div class="col-md-4">
-            <div class="card bg-primary text-white">
-                <div class="card-body">
-                    <h5 class="card-title">Total Children</h5>
-                    <h2 class="display-4">{{ total_children }}</h2>
+        <div class="col-12">
+            <div class="card border-primary">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Total Center Attendance</h5>
                 </div>
-            </div>
-        </div>
-       
-        <div class="col-md-4">
-            <div class="card bg-info text-white">
                 <div class="card-body">
-                    <h5 class="card-title">Currently Signed In</h5>
-                    <h2 class="display-4">{{ currently_signed_in }}</h2>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card bg-warning text-white">
-                <div class="card-body">
-                    <h5 class="card-title">Avg Attendance Rate</h5>
-                    <h2 class="display-4">{{ average_attendance_rate }}%</h2>
-                </div>
-            </div>
-        </div>
-    </div>
+                    <!-- Room Cards -->
+                    <div class="row">
+                        {% for room in rooms %}
+                            <div class="col-12 mb-4">
+                                <div class="card border-primary">
+                                    <div class="card-header bg-pink text-white">
+                                        <h5 class="mb-0">{{ room.name }}</h5>
+                                    </div>
+                                    <!-- Student List -->
+                                    <div class="card-footer bg-light-pink border-top-0">
+                                        <div class="table-responsive">
+                                            <table class="table table-hover mb-0">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Name</th>
+                                                        <th>Attendance</th>
+                                                        <th>Sign In</th>
+                                                        <th>Sign Out</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {% for child in room.children.all %}
+                                                        <tr>
+                                                            <td>
+                                                                <a href="{% url 'reports:child_details' child.id %}" class="text-decoration-none">
+                                                                    {{ child.name }}
+                                                                </a>
+                                                            </td>
+                                                            <td>
+                                                                {% if child.is_signed_in %}
+                                                                    <span class="badge bg-success">Signed In</span>
+                                                                {% else %}
+                                                                    <span class="badge bg-secondary">Not Signed In</span>
+                                                                {% endif %}
+                                                            </td>
+                                                            <td>
+                                                                {{ child.sign_in_time|default:"-" }}
+                                                            </td>
+                                                            <td>
+                                                                {% with attendance=child|get_today_attendance:date %}
+                                                                    {% if attendance %}
+                                                                        {{ attendance.sign_out|time:'h:i A' }}
+                                                                    {% endif %}
+                                                                {% endwith %}
+                                                            </td>
+                                                        </tr>
+                                                    {% endfor %}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
 
-    <!-- Time-Based Stats -->
-    <div class="row mb-4">
-        <div class="col-md-4">
-            <div class="card">
-                <div class="card-body">
-                    <h5 class="card-title">Average Sign-In Time</h5>
-                    <h3 class="text-primary">{% if avg_sign_in_time %}{{ avg_sign_in_time|time:"H:i" }}{% else %}N/A{% endif %}</h3>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card">
-                <div class="card-body">
-                    <h5 class="card-title">Average Sign-Out Time</h5>
-                    <h3 class="text-primary">{% if avg_sign_out_time %}{{ avg_sign_out_time|time:"H:i" }}{% else %}N/A{% endif %}</h3>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card">
-                <div class="card-body">
-                    <h5 class="card-title">Peak Attendance Hour</h5>
-                    <h3 class="text-primary">{% if peak_hour %}{{ peak_hour }}:00{% else %}N/A{% endif %}</h3>
                 </div>
             </div>
         </div>
@@ -158,14 +179,69 @@
                         <h2>Admin Portal</h2>
                     </div>
                     <div class="col-6">
-                        <div class="input-group">
-                            <input type="text" class="form-control" id="datePicker" name="date" value="{{ selected_date|date:'Y-m-d' }}" style="width: 200px;">
-                            <button class="btn btn-primary" type="button" onclick="generatePDF()">
-                                <i class="fas fa-file-pdf"></i> Generate Report
-                            </button>
+                        
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Room Cards Section -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <h3 class="mb-4">Room Attendance</h3>
+            <div class="row" id="room-cards">
+                {% for room in rooms %}
+                <div class="col-md-4 mb-4">
+                    <div class="card">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="mb-0">{{ room.name }}</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <div>
+                                    <h6>Total Children</h6>
+                                    <h3 class="display-4 mb-0">{{ room.children.count }}</h3>
+                                </div>
+                                <div>
+                                    <h6>Signed In</h6>
+                                    <h3 class="display-4 mb-0 text-success">{{ room.attendance_count }}</h3>
+                                </div>
+                            </div>
+                            <div class="progress mb-3">
+                                <div class="progress-bar bg-success" role="progressbar" 
+                                     style="width: {{ room.attendance_rate }}%" 
+                                     aria-valuenow="{{ room.attendance_rate }}" 
+                                     aria-valuemin="0" 
+                                     aria-valuemax="100">
+                                    {{ room.attendance_rate }}%
+                                </div>
+                            </div>
+                            <div class="list-group">
+                                {% for child in room.children.all %}
+                                <div class="list-group-item">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <div>
+                                            <h6 class="mb-0">{{ child.name }}</h6>
+                                            <small class="text-muted">{{ child.parent.name }}</small>
+                                        </div>
+                                        <span class="badge {% if child.is_signed_in %}bg-success{% else %}bg-secondary{% endif %}">
+                                            {% if child.is_signed_in %}Signed In{% else %}Not Signed In{% endif %}
+                                        </span>
+                                    </div>
+                                    {% if child.is_signed_in %}
+                                    <div class="mt-2">
+                                        <small class="text-muted">Sign In Time:</small>
+                                        <p class="mb-0">{{ child.sign_in_time }}</p>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                {% endfor %}
+                            </div>
                         </div>
                     </div>
                 </div>
+                {% endfor %}
             </div>
         </div>
     </div>
@@ -203,7 +279,6 @@
                 <div class="card-body">
                     <h5 class="card-title">Attendance Records for {{ selected_date }}</h5>
                     <div class="table-responsive">
-                        <table class="table">
                         <table class="table table-hover">
                             <thead>
                                 <tr>
@@ -255,5 +330,67 @@
             </div>
         </div>
     </div>
+
+    <!-- Room Cards Section -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <h3 class="mb-4">Room Attendance</h3>
+            <div class="row" id="room-cards">
+                {% for room in rooms %}
+                <div class="col-md-4 mb-4">
+                    <div class="card">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="mb-0">{{ room.name }}</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <div>
+                                    <h6>Total Children</h6>
+                                    <h3 class="display-4 mb-0">{{ room.children.count }}</h3>
+                                </div>
+                                <div>
+                                    <h6>Signed In</h6>
+                                    <h3 class="display-4 mb-0 text-success">{{ room.attendance_count }}</h3>
+                                </div>
+                            </div>
+                            <div class="progress mb-3">
+                                <div class="progress-bar bg-success" role="progressbar" 
+                                     style="width: {{ room.attendance_rate }}%" 
+                                     aria-valuenow="{{ room.attendance_rate }}" 
+                                     aria-valuemin="0" 
+                                     aria-valuemax="100">
+                                    {{ room.attendance_rate }}%
+                                </div>
+                            </div>
+                            <div class="list-group">
+                                {% for child in room.children.all %}
+                                <div class="list-group-item">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <div>
+                                            <h6 class="mb-0">{{ child.name }}</h6>
+                                            <small class="text-muted">{{ child.parent.name }}</small>
+                                        </div>
+                                        <span class="badge {% if child.is_signed_in %}bg-success{% else %}bg-secondary{% endif %}">
+                                            {% if child.is_signed_in %}Signed In{% else %}Not Signed In{% endif %}
+                                        </span>
+                                    </div>
+                                    {% if child.is_signed_in %}
+                                    <div class="mt-2">
+                                        <small class="text-muted">Sign In Time:</small>
+                                        <p class="mb-0">{{ child.sign_in_time }}</p>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    </div>
 </div>
-{% endblock %}
+{% endblock content %}
