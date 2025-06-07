@@ -16,10 +16,23 @@ A modern Django-based web application for managing childcare attendance with rea
 - ✅ Comprehensive attendance records with historical data
 - ✅ Center management with capacity tracking
 - ✅ Teacher profiles and assignments
+- ✅ Student Monitor with filtering capabilities
+- ✅ Room-based attendance tracking
+- ✅ Status-based filtering (Present/Absent)
+- ✅ Responsive design for mobile and tablet devices
 
 ### 👥 User Roles
-- 📝 Teachers: Manage attendance, view records, and update profiles
-- ⚙️ Admin: Full access to all features and system management
+- 📝 Teachers: 
+  - Manage attendance
+  - View records
+  - Update profiles
+  - Monitor students by room
+  - Filter attendance by status
+- ⚙️ Admin: 
+  - Full access to all features
+  - System management
+  - Center configuration
+  - User management
 
 ## 📁 Project Structure
 
@@ -49,6 +62,25 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
+3. Configure environment variables:
+```bash
+# Create .env file in project root
+# Add the following variables:
+DEBUG=True
+SECRET_KEY=your-secret-key-here
+DATABASE_URL=your-database-url
+EMAIL_HOST=your-email-host
+EMAIL_PORT=your-email-port
+EMAIL_HOST_USER=your-email-user
+EMAIL_HOST_PASSWORD=your-email-password
+```
+
+4. Run migrations:
+```bash
+python manage.py makemigrations
+python manage.py migrate
+```
+
 3. Configure database settings in `settings.py`:
 - PostgreSQL is recommended
 - Ensure timezone is set to 'Pacific/Auckland'
@@ -73,18 +105,21 @@ python manage.py runserver
 - Main application: http://localhost:8000
 - Admin panel: http://localhost:8000/admin
 
-## 📊 Usage
+### 📊 Usage
 
 ### 📱 Teacher Login
 - Teachers can log in using their credentials
 - Dashboard shows all children in their center
 - Live search functionality for quick lookup
+- Monitor view for room-based attendance tracking
+- Filter students by room and attendance status
 
 ### 📅 Attendance Management
 - Sign-in/Sign-out functionality with timestamps
 - Automatic notifications to parents
 - Late sign-in tracking with reasons
 - Attendance records view with detailed information
+- Notes tracking for special attendance circumstances
 
 ### 📧 Notifications
 - Email notifications for sign-ins and late arrivals
