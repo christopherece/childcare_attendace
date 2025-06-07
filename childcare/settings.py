@@ -66,6 +66,7 @@ INSTALLED_APPS = [
     'attendance',
     'reports',
     'notifications',
+    'monitor',
 ]
 
 MIDDLEWARE = [

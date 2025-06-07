@@ -6,6 +6,7 @@ from django.contrib.auth.decorators import login_required
 from django.db.models import Q
 from django.utils import timezone
 import pytz
+from .models import Child, Attendance
 
 # Set default timezone to New Zealand
 NZ_TIMEZONE = pytz.timezone('Pacific/Auckland')
@@ -41,6 +42,26 @@ def logout_view(request):
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.core.mail import send_mail
 from django.template.loader import render_to_string
+
+def child_detail(request, child_id):
+    """View to display child details and their attendance records"""
+    child = get_object_or_404(Child, id=child_id)
+    
+    # Get today's date
+    today = timezone.now().date()
+    
+    # Get attendance records for this child
+    attendance_records = Attendance.objects.filter(
+        child=child,
+        sign_in__date__gte=today - timedelta(days=7)  # Show last 7 days
+    ).order_by('-sign_in')
+    
+    context = {
+        'child': child,
+        'attendance_records': attendance_records,
+        'today': today
+    }
+    return render(request, 'attendance/child_detail.html', context)
 
 def login_view(request):
     # If GET request, just show the login form

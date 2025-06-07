@@ -14,7 +14,7 @@ def generate_attendance_pdf(attendances, selected_date, room_name, center_name="
 
         p = canvas.Canvas(response, pagesize=A4)
         page_width, page_height = A4
-
+        
         # Margins
         left_margin = 30
         right_margin = page_width - 30
@@ -73,25 +73,24 @@ def generate_attendance_pdf(attendances, selected_date, room_name, center_name="
         table.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2c3e50')),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
             ('FONTSIZE', (0, 0), (-1, 0), 12),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 10),
-
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+            ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
             ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
             ('FONTSIZE', (0, 1), (-1, -1), 10),
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('ALIGN', (0, 1), (-1, -1), 'CENTER'),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-
-            ('INNERGRID', (0, 0), (-1, -1), 0.25, colors.grey),
-            ('BOX', (0, 0), (-1, -1), 0.5, colors.grey),
-
-            ('LEFTPADDING', (0, 0), (-1, -1), 4),
-            ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ('LEFTPADDING', (0, 0), (-1, -1), 6),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 6)
         ]))
 
-        # Table position
+        # Position the table closer to the header
         table_x = left_margin
-        table_y = top_margin - 260
+        table_y = top_margin - 280
 
         table.wrapOn(p, 0, 0)
         table.drawOn(p, table_x, table_y)

@@ -1,0 +1,185 @@
+{% extends 'attendance/base.html' %}
+{% load static %}
+{% load monitor_extras %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Student Monitor</h2>
+        <div class="btn-group">
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#filterModal">
+                <i class="fas fa-filter"></i> Filter
+            </button>
+        </div>
+    </div>
+
+    {% if attendance_records %}
+    <div class="card">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Student Name</th>
+                            <th>Room</th>
+                            <th>Status</th>
+                            <th>Sign In</th>
+                            <th>Sign Out</th>
+                            <th>Notes</th>
+                        </tr>
+                    </thead>
+                     <tbody>
+                        {% for record in attendance_records %}
+                        <tr>
+                            <td>
+                                <a href="{% url 'attendance:child_detail' record.child.id %}" class="text-decoration-none">
+                                    {{ record.child.name }}
+                                </a>
+                            </td>
+                            <td>{{ record.child.room.name }}</td>
+                            <td>
+                                {% if record.attendance %}
+                                    {% if record.attendance.sign_out %}
+                                        <span class="badge bg-secondary">Signed Out</span>
+                                    {% else %}
+                                        <span class="badge bg-success">Present</span>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="badge bg-secondary">Absent</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if record.attendance %}
+                                    {{ record.attendance.sign_in|time:"H:i" }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if record.attendance and record.attendance.sign_out %}
+                                    {{ record.attendance.sign_out|date:"h:i A" }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if record.attendance and record.attendance.notes %}
+                                    <span class="text-muted small">{{ record.attendance.notes }}</span>
+                                {% else %}
+                                    <span class="text-muted">No notes</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="alert alert-info">
+        No students found in your center/room.
+    </div>
+    {% endif %}
+
+    <!-- Filter Modal -->
+    <div class="modal fade" id="filterModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Filter Students</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="filterForm">
+                        <div class="mb-3">
+                            <label for="roomFilter" class="form-label">Room</label>
+                            <select class="form-select" id="roomFilter" name="room">
+                                <option value="">All Rooms</option>
+                                {% for room in rooms %}
+                                <option value="{{ room.id }}" {% if room == selected_room %}selected{% endif %}>
+                                    {{ room.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="statusFilter" class="form-label">Status</label>
+                            <select class="form-select" id="statusFilter" name="status">
+                                <option value="">All Status</option>
+                                <option value="present" {% if request.GET.status == 'present' %}selected{% endif %}>
+                                    Present
+                                </option>
+                                <option value="absent" {% if request.GET.status == 'absent' %}selected{% endif %}>
+                                    Absent
+                                </option>
+                            </select>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="submit" form="filterForm" class="btn btn-primary">Apply Filters</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    function signOut(childId) {
+        if (confirm('Are you sure you want to sign out this student?')) {
+            fetch(`/attendance/sign-out/${childId}/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    child_id: childId,
+                    room_id: {{ room.id|default:"null" }}
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    alert(data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while signing out the student');
+            });
+        }
+    }
+
+    function viewDetails(childId) {
+        window.location.href = `/attendance/child/${childId}/`;
+    }
+
+    function applyFilters() {
+        const room = document.getElementById('roomFilter').value;
+        
+        // Build the URL with filters
+        let url = window.location.pathname;
+        const params = new URLSearchParams(window.location.search);
+        
+        // Update or add room parameter
+        if (room) {
+            params.set('room', room);
+        } else {
+            params.delete('room');
+        }
+        
+        // Update URL
+        if (params.toString()) {
+            url += '?' + params.toString();
+        }
+        
+        // Redirect to filtered view
+        window.location.href = url;
+    }
+    </script>
+</div>
+{% endblock %}

@@ -1,0 +1,74 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8 offset-md-2">
+            <div class="card">
+                <div class="card-header bg-pink text-white">
+                    <h4 class="mb-0">Child Details</h4>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <h5>Name: {{ child.name }}</h5>
+                            <p>Room: {{ child.room.name }}</p>
+                            <p>Age: {{ child.age }}</p>
+                            <p>Parent: {{ child.parent.full_name }}</p>
+                            <p>Contact: {{ child.parent.phone }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <h5>Attendance Status</h5>
+                            {% if attendance_records %}
+                                <div class="table-responsive">
+                                    <table class="table">
+                                        <thead>
+                                            <tr>
+                                                <th>Date</th>
+                                                <th>Sign In</th>
+                                                <th>Sign Out</th>
+                                                <th>Notes</th>
+                                                <th>Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for record in attendance_records %}
+                                            <tr>
+                                                <td>{{ record.sign_in|date:"M d, Y" }}</td>
+                                                <td>{{ record.sign_in|time:"H:i" }}</td>
+                                                <td>{{ record.sign_out|time:"H:i" }}</td>
+                                                <td>
+                                                    {% if record.notes %}
+                                                        <span class="text-muted small">{{ record.notes }}</span>
+                                                    {% else %}
+                                                        <span class="text-muted">No notes</span>
+                                                    {% endif %}
+                                                </td>
+                                                <td>
+                                                    {% if record.sign_out %}
+                                                        <span class="badge bg-success">Signed Out</span>
+                                                    {% else %}
+                                                        <span class="badge bg-primary">Signed In</span>
+                                                    {% endif %}
+                                                </td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            {% else %}
+                                <p class="text-muted">No attendance records for this child.</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="text-end">
+                        <a href="javascript:history.back()" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left"></i> Back
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
