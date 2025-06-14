@@ -13,9 +13,14 @@
                         <div class="col-md-6">
                             <h5>Name: {{ child.name }}</h5>
                             <p>Room: {{ child.room.name }}</p>
-                            <p>Age: {{ child.age }}</p>
-                            <p>Parent: {{ child.parent.full_name }}</p>
-                            <p>Contact: {{ child.parent.phone }}</p>
+                            <p>Age: {{ child.age }} years</p>
+                            <p>Gender: {{ child.gender }}</p>
+                            <p>Birthdate: {% if child.birthdate %}{{ child.birthdate|date:"M d, Y" }}{% else %}Not provided{% endif %}</p>
+                            <p>Enrollment Date: {% if child.enrollment_date %}{{ child.enrollment_date|date:"M d, Y" }}{% else %}Not provided{% endif %}</p>
+                            <p>Parent: {% if child.parent.full_name %}{{ child.parent.full_name }}{% else %}Not provided{% endif %}</p>
+                            <p>Contact: {% if child.parent.phone %}{{ child.parent.phone }}{% else %}Not provided{% endif %}</p>
+                            <p>Email: {% if child.parent.email %}{{ child.parent.email }}{% else %}Not provided{% endif %}</p>
+                            <p>Address: {% if child.parent.address %}{{ child.parent.address }}{% else %}Not provided{% endif %}</p>
                         </div>
                         <div class="col-md-6">
                             <h5>Attendance Status</h5>
