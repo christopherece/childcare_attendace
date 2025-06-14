@@ -212,8 +212,17 @@ def admin_portal(request):
         return redirect('attendance:dashboard')
     
     # Get today's date using timezone-aware datetime
-    today = timezone.now().date()
     current_time = timezone.now()
+    
+    # Get date from URL parameter or use today
+    date_str = request.GET.get('date')
+    if date_str:
+        try:
+            selected_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+        except ValueError:
+            selected_date = timezone.now().date()
+    else:
+        selected_date = timezone.now().date()
     
     # Check if we should show the attendance report view
     view_type = request.GET.get('view')

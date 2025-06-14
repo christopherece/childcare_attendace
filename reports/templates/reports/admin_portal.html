@@ -11,9 +11,21 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
     // Initialize date picker and room select
+    // Get selected date from URL parameter or use today
+    const urlParams = new URLSearchParams(window.location.search);
+    const selectedDate = urlParams.get('date');
+    const today = new Date().toISOString().split('T')[0];
+    const defaultDate = selectedDate || today;
+
+    // Hide attendance table by default
+    const attendanceTable = document.querySelector('.attendance-list');
+    if (!selectedDate) {
+        attendanceTable.style.display = 'none';
+    }
+
     flatpickr("#datePicker", {
         dateFormat: "Y-m-d",
-        defaultDate: "{{ date|date:'Y-m-d' }}",
+        defaultDate: defaultDate,
         onChange: function(selectedDates, dateStr, instance) {
             updateURL();
         }
@@ -41,6 +53,12 @@
         const newUrl = `/reports/admin-portal/?${params.toString()}`;
         window.history.pushState({}, '', newUrl);
         window.location.href = newUrl;
+
+        // Show attendance table if date is selected
+        const attendanceTable = document.querySelector('.attendance-list');
+        if (date) {
+            attendanceTable.style.display = 'block';
+        }
     }
 
     // Initialize attendance by time chart
@@ -152,7 +170,7 @@
                 </div>
                 <div class="card-body">
                     <!-- Attendance List -->
-                    <div class="card border-primary">
+                    <div class="card border-primary attendance-list">
                         <div class="card-header bg-pink text-white">
                             <h5 class="mb-0">Attendance List</h5>
                         </div>
@@ -180,7 +198,7 @@
                                                     {{ attendance.child.parent.name }}
                                                 </td>
                                                 <td>
-                                                    <span class="badge {% if attendance.status == 'Present' %}bg-success{% else %}bg-secondary{% endif %}">
+                                                    <span class="badge {% if attendance.status == 'Present' %}bg-success{% elif attendance.status == 'Absent' %}bg-danger{% else %}bg-secondary{% endif %}">
                                                         {{ attendance.status }}
                                                     </span>
                                                 </td>
